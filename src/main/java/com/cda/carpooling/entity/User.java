@@ -3,6 +3,7 @@ package com.cda.carpooling.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -19,7 +20,7 @@ import java.util.Set;
 @AllArgsConstructor
 @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(exclude = {"roles", "vehicles", "bookings", "notifications", "profile"})
+@ToString(exclude = {"roles", "vehicle", "bookings", "notifications", "profile"})
 public class User {
 
     @Id
@@ -34,15 +35,21 @@ public class User {
     @Column(name = "password", nullable = false)
     private String password;
 
+    @Column(name = "last_login")
+    private LocalDateTime lastLogin;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "last_login")
-    private LocalDateTime lastLogin;
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
-    // Relations
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
+    //region Relations
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_user_status", nullable = false)
     private UserStatus status;
@@ -59,9 +66,8 @@ public class User {
     @Builder.Default
     private Set<Role> roles = new HashSet<>();
 
-    @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private Set<Vehicle> vehicles = new HashSet<>();
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Vehicle vehicle;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
@@ -70,19 +76,9 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<Notification> notifications = new HashSet<>();
+    //endregion
 
     //region Utils
-    public void setProfile(UserProfile profile) {
-        if (profile == null) {
-            if (this.profile != null) {
-                this.profile.setUser(null);
-            }
-        } else {
-            profile.setUser(this);
-        }
-        this.profile = profile;
-    }
-
     public void addRole(Role role) {
         this.roles.add(role);
         role.getUsers().add(this);
@@ -91,16 +87,6 @@ public class User {
     public void removeRole(Role role) {
         this.roles.remove(role);
         role.getUsers().remove(this);
-    }
-
-    public void addVehicle(Vehicle vehicle) {
-        this.vehicles.add(vehicle);
-        vehicle.setOwner(this);
-    }
-
-    public void removeVehicle(Vehicle vehicle) {
-        this.vehicles.remove(vehicle);
-        vehicle.setOwner(null);
     }
     //endregion
 }

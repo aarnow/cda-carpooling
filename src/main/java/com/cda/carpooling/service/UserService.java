@@ -2,31 +2,28 @@ package com.cda.carpooling.service;
 
 import com.cda.carpooling.dto.request.CreateUserRequest;
 import com.cda.carpooling.dto.request.UpdateUserRequest;
+import com.cda.carpooling.dto.response.UserMinimalResponse;
 import com.cda.carpooling.dto.response.UserResponse;
 import com.cda.carpooling.entity.Role;
 import com.cda.carpooling.entity.User;
 import com.cda.carpooling.entity.UserStatus;
-import com.cda.carpooling.exception.DuplicateResourceException;
 import com.cda.carpooling.exception.ResourceNotFoundException;
+import com.cda.carpooling.exception.DuplicateResourceException;
 import com.cda.carpooling.mapper.UserMapper;
 import com.cda.carpooling.repository.RoleRepository;
 import com.cda.carpooling.repository.UserRepository;
 import com.cda.carpooling.repository.UserStatusRepository;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
-/**
- * Service gérant la logique métier des utilisateurs.
- * Respecte les principes SOLID :
- * - Single Responsibility : gestion uniquement des utilisateurs
- * - Open/Closed : extensible via injection de dépendances
- * - Dependency Inversion : dépend des abstractions (repositories)
- */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -40,44 +37,30 @@ public class UserService {
 
     /**
      * Crée un nouvel utilisateur.
-     *
-     * @param request Les données de l'utilisateur à créer
-     * @return L'utilisateur créé
-     * @throws DuplicateResourceException si l'email existe déjà
      */
     @Transactional
     public UserResponse createUser(CreateUserRequest request) {
-        // Vérifier si l'email existe déjà
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new DuplicateResourceException("Utilisateur", "email", request.getEmail());
         }
 
-        // Convertir DTO vers entity
         User user = userMapper.toEntity(request);
-
-        // Hasher le mot de passe
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
-        // Définir le statut par défaut (PENDING ou ACTIVE)
         UserStatus defaultStatus = userStatusRepository.findByLabel(UserStatus.ACTIVE)
                 .orElseThrow(() -> new ResourceNotFoundException("Le statut par défaut n'existe pas"));
         user.setStatus(defaultStatus);
 
-        // Assigner le rôle par défaut (STUDENT)
         Role defaultRole = roleRepository.findByLabel(Role.ROLE_STUDENT)
                 .orElseThrow(() -> new ResourceNotFoundException("Le rôle par défaut n'existe pas"));
         user.addRole(defaultRole);
 
-        // Sauvegarder
         User savedUser = userRepository.save(user);
-
         return userMapper.toResponse(savedUser);
     }
 
     /**
      * Récupère tous les utilisateurs.
-     *
-     * @return Liste de tous les utilisateurs
      */
     public List<UserResponse> getAllUsers() {
         return userRepository.findAllWithProfileAndRoles().stream()
@@ -86,111 +69,112 @@ public class UserService {
     }
 
     /**
-     * Récupère un utilisateur par son ID.
-     *
-     * @param id L'ID de l'utilisateur
-     * @return L'utilisateur trouvé
-     * @throws ResourceNotFoundException si l'utilisateur n'existe pas
+     * Récupère tous les utilisateurs (version minimale).
      */
+    public List<UserMinimalResponse> getAllUsersMinimal() {
+        return userRepository.findAll().stream()
+                .map(userMapper::toMinimalResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Récupère un utilisateur par son ID.
+     */
+    @NonNull
     public UserResponse getUserById(Long id) {
         User user = userRepository.findByIdWithProfileAndRoles(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
-
         return userMapper.toResponse(user);
     }
 
     /**
      * Récupère un utilisateur par son email.
-     *
-     * @param email L'email de l'utilisateur
-     * @return L'utilisateur trouvé
-     * @throws ResourceNotFoundException si l'utilisateur n'existe pas
      */
+    @NonNull
     public UserResponse getUserByEmail(String email) {
         User user = userRepository.findByEmailWithProfileAndRoles(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "email", email));
-
         return userMapper.toResponse(user);
     }
 
     /**
      * Met à jour un utilisateur existant.
-     * Applique un patch update : seuls les champs non null sont mis à jour.
-     *
-     * @param id L'ID de l'utilisateur à mettre à jour
-     * @param request Les données à mettre à jour
-     * @return L'utilisateur mis à jour
-     * @throws ResourceNotFoundException si l'utilisateur n'existe pas
-     * @throws DuplicateResourceException si le nouvel email existe déjà
      */
     @Transactional
     public UserResponse updateUser(Long id, UpdateUserRequest request) {
-        // Vérifier que l'utilisateur existe
         User user = userRepository.findByIdWithProfileAndRoles(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
 
-        // Vérifier l'unicité de l'email si modifié
         if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
             if (userRepository.existsByEmail(request.getEmail())) {
                 throw new DuplicateResourceException("Utilisateur", "email", request.getEmail());
             }
         }
 
-        // Hasher le nouveau mot de passe si fourni
         if (request.getPassword() != null) {
             request.setPassword(passwordEncoder.encode(request.getPassword()));
         }
 
-        // Appliquer les modifications
         userMapper.updateEntity(user, request);
-
-        // Sauvegarder
         User updatedUser = userRepository.save(user);
-
         return userMapper.toResponse(updatedUser);
     }
 
     /**
-     * Supprime un utilisateur (soft delete : change le statut).
+     * Supprime un utilisateur.
      *
-     * @param id L'ID de l'utilisateur à supprimer
-     * @throws ResourceNotFoundException si l'utilisateur n'existe pas
+     * Anonymise toutes les données personnelles.
+     *
+     * Conserve :
+     * - Les relations (réservations, trajets) pour obligations légales
+     * - L'ID pour intégrité référentielle
+     *
+     * @param id L'ID de l'utilisateur
      */
     @Transactional
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
 
-        // Soft delete : changer le statut en DELETED
+        anonymizePersonalData(user);
+        user.setDeletedAt(LocalDateTime.now());
         UserStatus deletedStatus = userStatusRepository.findByLabel(UserStatus.DELETED)
                 .orElseThrow(() -> new ResourceNotFoundException("Le statut DELETED n'existe pas"));
-
         user.setStatus(deletedStatus);
+
         userRepository.save(user);
     }
 
     /**
-     * Supprime définitivement un utilisateur (hard delete).
-     * À utiliser avec précaution !
-     *
-     * @param id L'ID de l'utilisateur à supprimer définitivement
-     * @throws ResourceNotFoundException si l'utilisateur n'existe pas
+     * Anonymise les données personnelles d'un utilisateur.
+     * Appelé lors d'une demande de soft delete.
+     */
+    private void anonymizePersonalData(User user) {
+        user.setEmail("deleted-" + UUID.randomUUID() + "@anonymized.local");
+        user.setPassword("DELETED");
+
+        if (user.getProfile() != null) {
+            user.getProfile().setFirstname("Utilisateur");
+            user.getProfile().setLastname("Supprimé");
+            user.getProfile().setPhone(null);
+            user.getProfile().setBirthday(null);
+            user.getProfile().setAvatarUrl(null);
+        }
+    }
+
+    /**
+     * Supprime définitivement un utilisateur.
      */
     @Transactional
     public void hardDeleteUser(Long id) {
         if (!userRepository.existsById(id)) {
             throw new ResourceNotFoundException("Utilisateur", "id", id);
         }
-
         userRepository.deleteById(id);
     }
 
     /**
      * Assigne un rôle à un utilisateur.
-     *
-     * @param userId L'ID de l'utilisateur
-     * @param roleLabel Le label du rôle à assigner
-     * @return L'utilisateur mis à jour
      */
     @Transactional
     public UserResponse assignRole(Long userId, String roleLabel) {
@@ -202,16 +186,11 @@ public class UserService {
 
         user.addRole(role);
         User updatedUser = userRepository.save(user);
-
         return userMapper.toResponse(updatedUser);
     }
 
     /**
      * Retire un rôle d'un utilisateur.
-     *
-     * @param userId L'ID de l'utilisateur
-     * @param roleLabel Le label du rôle à retirer
-     * @return L'utilisateur mis à jour
      */
     @Transactional
     public UserResponse removeRole(Long userId, String roleLabel) {
@@ -223,7 +202,6 @@ public class UserService {
 
         user.removeRole(role);
         User updatedUser = userRepository.save(user);
-
         return userMapper.toResponse(updatedUser);
     }
 }

@@ -17,6 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+/**
+ * Service responsable de l'initialisation des données de référence et des fixtures en base de données.
+ * Les fixtures (données de test) ne sont chargées qu'en environnement de dev.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -28,6 +32,11 @@ public class DataLoader {
     private final BCryptPasswordEncoder passwordEncoder;
     private final Environment environment;
 
+    /**
+     * Méthode déclenchée automatiquement après le démarrage complet de l'application (ApplicationReadyEvent).
+     * Initialise les données de référence (statuts, rôles) et, en environnement de développement, les utilisateurs de test.
+     * @Transactional : Garantit que toutes les opérations de base de données sont exécutées dans une seule transaction.
+     */
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void onApplicationReady() {
@@ -44,6 +53,9 @@ public class DataLoader {
         log.info("✅ Database initialization complete!");
     }
 
+    /**
+     * Initialise les statuts utilisateur s'ils n'existent pas déjà en base.
+     */
     private void initUserStatuses() {
         if (userStatusRepository.count() == 0) {
             log.info("📊 Creating user statuses...");
@@ -72,6 +84,9 @@ public class DataLoader {
         }
     }
 
+    /**
+     * Initialise les rôles s'ils n'existent pas déjà en base.
+     */
     private void initRoles() {
         if (roleRepository.count() == 0) {
             log.info("📊 Creating roles...");
@@ -95,6 +110,9 @@ public class DataLoader {
         }
     }
 
+    /**
+     * Initialise les utilisateurs de test (admin, student, driver) UNIQUEMENT en environnement de dev.
+     */
     private void initTestUsers() {
         if (userRepository.count() > 0) {
             log.info("⏭️  Test users already exist, skipping...");
@@ -113,6 +131,9 @@ public class DataLoader {
         log.info("✅ Test users created");
     }
 
+    /**
+     * Crée un utilisateur admin avec le rôle ADMIN.
+     */
     private void createAdminUser(UserStatus activeStatus) {
         Role adminRole = roleRepository.findByLabel(Role.ROLE_ADMIN)
                 .orElseThrow(() -> new IllegalStateException("ADMIN role not found"));
@@ -130,6 +151,9 @@ public class DataLoader {
         log.info("✅ Admin user: admin@greta.fr / Admin@123");
     }
 
+    /**
+     * Crée un utilisateur étudiant avec le rôle STUDENT.
+     */
     private void createStudentUser(UserStatus activeStatus) {
         Role studentRole = roleRepository.findByLabel(Role.ROLE_STUDENT)
                 .orElseThrow(() -> new IllegalStateException("STUDENT role not found"));
@@ -147,6 +171,9 @@ public class DataLoader {
         log.info("✅ Student user: student@test.fr / Student@123");
     }
 
+    /**
+     * Crée un utilisateur conducteur avec les rôles STUDENT et DRIVER.
+     */
     private void createDriverUser(UserStatus activeStatus) {
         Role studentRole = roleRepository.findByLabel(Role.ROLE_STUDENT)
                 .orElseThrow(() -> new IllegalStateException("STUDENT role not found"));
@@ -167,6 +194,10 @@ public class DataLoader {
         log.info("✅ Driver user: driver@test.fr / Driver@123");
     }
 
+    /**
+     * Détermine si l'application est en environnement de développement.
+     * Spring Boot utilise la propriété "spring.profiles.active" pour définir l'environnement.
+     */
     private boolean isDevelopmentProfile() {
         String[] activeProfiles = environment.getActiveProfiles();
         if (activeProfiles.length == 0) {

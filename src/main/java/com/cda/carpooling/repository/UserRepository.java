@@ -32,7 +32,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
      * Récupère tous les utilisateurs avec leurs relations (EAGER).
-     * Utilise @EntityGraph pour éviter les ConcurrentModificationException.
      */
     @EntityGraph(attributePaths = {"profile", "roles", "status"})
     @Query("SELECT u FROM User u")

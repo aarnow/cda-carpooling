@@ -16,7 +16,7 @@ public class Vehicle {
     @Column(name = "id_vehicle")
     private Long id;
 
-    @ManyToOne
+    @OneToOne
     @JoinColumn(name = "id_user")
-    private User owner;
+    private User user;
 }

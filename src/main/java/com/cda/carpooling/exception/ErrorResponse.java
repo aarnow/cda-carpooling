@@ -12,7 +12,6 @@ import java.util.Map;
 
 /**
  * Classe représentant une réponse d'erreur standardisée.
- * Suit le format Problem Details for HTTP APIs (RFC 7807).
  */
 @Data
 @NoArgsConstructor
@@ -32,6 +31,5 @@ public class ErrorResponse {
 
     private String path;
 
-    // Pour les erreurs de validation
     private Map<String, String> validationErrors;
 }
