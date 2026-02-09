@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class UserProfileResponse {
+public class PersonProfileResponse {
 
     private String firstname;
     private String lastname;

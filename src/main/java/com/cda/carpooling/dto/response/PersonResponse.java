@@ -18,7 +18,7 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class UserResponse {
+public class PersonResponse {
 
     private Long id;
     private String email;
@@ -36,6 +36,6 @@ public class UserResponse {
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime deletedAt;
 
-    private UserProfileResponse profile;
+    private PersonProfileResponse profile;
     private Set<String> roles;
 }

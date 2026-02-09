@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserMinimalResponse {
+public class PersonMinimalResponse {
 
     private Long id;
     private String email;

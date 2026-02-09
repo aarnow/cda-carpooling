@@ -10,7 +10,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UpdateUserRequest {
+public class UpdatePersonRequest {
 
     @Email(message = "L'email doit être valide")
     @Size(max = 100, message = "L'email ne peut pas dépasser 100 caractères")

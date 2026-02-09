@@ -1,11 +1,11 @@
 package com.cda.carpooling.config;
 
+import com.cda.carpooling.entity.Person;
 import com.cda.carpooling.entity.Role;
-import com.cda.carpooling.entity.User;
-import com.cda.carpooling.entity.UserStatus;
+import com.cda.carpooling.entity.PersonStatus;
 import com.cda.carpooling.repository.RoleRepository;
-import com.cda.carpooling.repository.UserRepository;
-import com.cda.carpooling.repository.UserStatusRepository;
+import com.cda.carpooling.repository.PersonRepository;
+import com.cda.carpooling.repository.PersonStatusRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -26,15 +26,15 @@ import java.time.LocalDateTime;
 @Slf4j
 public class DataLoader {
 
-    private final UserStatusRepository userStatusRepository;
+    private final PersonStatusRepository personStatusRepository;
     private final RoleRepository roleRepository;
-    private final UserRepository userRepository;
+    private final PersonRepository personRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final Environment environment;
 
     /**
      * Méthode déclenchée automatiquement après le démarrage complet de l'application (ApplicationReadyEvent).
-     * Initialise les données de référence (statuts, rôles) et, en environnement de développement, les utilisateurs de test.
+     * Initialise les données de référence (statuts, rôles) et, en environnement de développement, les personnes de test.
      * @Transactional : Garantit que toutes les opérations de base de données sont exécutées dans une seule transaction.
      */
     @EventListener(ApplicationReadyEvent.class)
@@ -42,12 +42,12 @@ public class DataLoader {
     public void onApplicationReady() {
         log.info("🔄 Initializing reference data...");
 
-        initUserStatuses();
+        initPersonStatuses();
         initRoles();
 
         if (isDevelopmentProfile()) {
             log.info("🧪 Development profile detected - loading test data...");
-            initTestUsers();
+            initTestPersons();
         }
 
         log.info("✅ Database initialization complete!");
@@ -56,31 +56,31 @@ public class DataLoader {
     /**
      * Initialise les statuts utilisateur s'ils n'existent pas déjà en base.
      */
-    private void initUserStatuses() {
-        if (userStatusRepository.count() == 0) {
-            log.info("📊 Creating user statuses...");
+    private void initPersonStatuses() {
+        if (personStatusRepository.count() == 0) {
+            log.info("📊 Creating person statuses...");
 
-            userStatusRepository.save(UserStatus.builder()
-                    .label(UserStatus.ACTIVE)
-                    .description("Utilisateur actif et en règle")
+            personStatusRepository.save(PersonStatus.builder()
+                    .label(PersonStatus.ACTIVE)
+                    .description("Personne active et en règle")
                     .build());
 
-            userStatusRepository.save(UserStatus.builder()
-                    .label(UserStatus.PENDING)
-                    .description("Utilisateur en attente de validation")
+            personStatusRepository.save(PersonStatus.builder()
+                    .label(PersonStatus.PENDING)
+                    .description("Personne en attente de validation")
                     .build());
 
-            userStatusRepository.save(UserStatus.builder()
-                    .label(UserStatus.SUSPENDED)
-                    .description("Utilisateur suspendu temporairement")
+            personStatusRepository.save(PersonStatus.builder()
+                    .label(PersonStatus.SUSPENDED)
+                    .description("Personne suspendu temporairement")
                     .build());
 
-            userStatusRepository.save(UserStatus.builder()
-                    .label(UserStatus.DELETED)
-                    .description("Utilisateur supprimé (soft delete)")
+            personStatusRepository.save(PersonStatus.builder()
+                    .label(PersonStatus.DELETED)
+                    .description("Personne supprimée (soft delete)")
                     .build());
 
-            log.info("✅ User statuses created");
+            log.info("✅ Person statuses created");
         }
     }
 
@@ -111,34 +111,34 @@ public class DataLoader {
     }
 
     /**
-     * Initialise les utilisateurs de test (admin, student, driver) UNIQUEMENT en environnement de dev.
+     * Initialise les personnes de test (admin, student, driver) UNIQUEMENT en environnement de dev.
      */
-    private void initTestUsers() {
-        if (userRepository.count() > 0) {
-            log.info("⏭️  Test users already exist, skipping...");
+    private void initTestPersons() {
+        if (personRepository.count() > 0) {
+            log.info("⏭️  Test persons already exist, skipping...");
             return;
         }
 
-        log.info("👤 Creating test users...");
+        log.info("👤 Creating test persons...");
 
-        UserStatus activeStatus = userStatusRepository.findByLabel(UserStatus.ACTIVE)
+        PersonStatus activeStatus = personStatusRepository.findByLabel(PersonStatus.ACTIVE)
                 .orElseThrow(() -> new IllegalStateException("ACTIVE status not found"));
 
-        createAdminUser(activeStatus);
-        createStudentUser(activeStatus);
-        createDriverUser(activeStatus);
+        createAdminPerson(activeStatus);
+        createStudentPerson(activeStatus);
+        createDriverPerson(activeStatus);
 
-        log.info("✅ Test users created");
+        log.info("✅ Test persons created");
     }
 
     /**
      * Crée un utilisateur admin avec le rôle ADMIN.
      */
-    private void createAdminUser(UserStatus activeStatus) {
+    private void createAdminPerson(PersonStatus activeStatus) {
         Role adminRole = roleRepository.findByLabel(Role.ROLE_ADMIN)
                 .orElseThrow(() -> new IllegalStateException("ADMIN role not found"));
 
-        User admin = User.builder()
+        Person admin = Person.builder()
                 .email("admin@greta.fr")
                 .password(passwordEncoder.encode("Admin@123"))
                 .status(activeStatus)
@@ -146,19 +146,19 @@ public class DataLoader {
                 .build();
 
         admin.getRoles().add(adminRole);
-        userRepository.save(admin);
+        personRepository.save(admin);
 
-        log.info("✅ Admin user: admin@greta.fr / Admin@123");
+        log.info("✅ Admin person: admin@greta.fr / Admin@123");
     }
 
     /**
      * Crée un utilisateur étudiant avec le rôle STUDENT.
      */
-    private void createStudentUser(UserStatus activeStatus) {
+    private void createStudentPerson(PersonStatus activeStatus) {
         Role studentRole = roleRepository.findByLabel(Role.ROLE_STUDENT)
                 .orElseThrow(() -> new IllegalStateException("STUDENT role not found"));
 
-        User student = User.builder()
+        Person student = Person.builder()
                 .email("student@test.fr")
                 .password(passwordEncoder.encode("Student@123"))
                 .status(activeStatus)
@@ -166,21 +166,21 @@ public class DataLoader {
                 .build();
 
         student.getRoles().add(studentRole);
-        userRepository.save(student);
+        personRepository.save(student);
 
-        log.info("✅ Student user: student@test.fr / Student@123");
+        log.info("✅ Student person: student@test.fr / Student@123");
     }
 
     /**
      * Crée un utilisateur conducteur avec les rôles STUDENT et DRIVER.
      */
-    private void createDriverUser(UserStatus activeStatus) {
+    private void createDriverPerson(PersonStatus activeStatus) {
         Role studentRole = roleRepository.findByLabel(Role.ROLE_STUDENT)
                 .orElseThrow(() -> new IllegalStateException("STUDENT role not found"));
         Role driverRole = roleRepository.findByLabel(Role.ROLE_DRIVER)
                 .orElseThrow(() -> new IllegalStateException("DRIVER role not found"));
 
-        User driver = User.builder()
+        Person driver = Person.builder()
                 .email("driver@test.fr")
                 .password(passwordEncoder.encode("Driver@123"))
                 .status(activeStatus)
@@ -189,9 +189,9 @@ public class DataLoader {
 
         driver.getRoles().add(studentRole);
         driver.getRoles().add(driverRole);
-        userRepository.save(driver);
+        personRepository.save(driver);
 
-        log.info("✅ Driver user: driver@test.fr / Driver@123");
+        log.info("✅ Driver person: driver@test.fr / Driver@123");
     }
 
     /**

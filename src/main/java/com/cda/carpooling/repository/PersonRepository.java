@@ -1,6 +1,6 @@
 package com.cda.carpooling.repository;
 
-import com.cda.carpooling.entity.User;
+import com.cda.carpooling.entity.Person;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -9,7 +9,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
-public interface UserRepository extends JpaRepository<User, Long> {
+public interface PersonRepository extends JpaRepository<Person, Long> {
 
     /**
      * Vérifie si un utilisateur existe avec l'email donné.
@@ -20,20 +20,20 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * Trouve un utilisateur par email avec son profil et ses rôles (EAGER).
      */
     @EntityGraph(attributePaths = {"profile", "roles", "status"})
-    @Query("SELECT u FROM User u WHERE u.email = :email")
-    Optional<User> findByEmailWithProfileAndRoles(@Param("email") String email);
+    @Query("SELECT u FROM Person u WHERE u.email = :email")
+    Optional<Person> findByEmailWithProfileAndRoles(@Param("email") String email);
 
     /**
      * Trouve un utilisateur par ID avec son profil et ses rôles (EAGER).
      */
     @EntityGraph(attributePaths = {"profile", "roles", "status"})
-    @Query("SELECT u FROM User u WHERE u.id = :id")
-    Optional<User> findByIdWithProfileAndRoles(@Param("id") Long id);
+    @Query("SELECT u FROM Person u WHERE u.id = :id")
+    Optional<Person> findByIdWithProfileAndRoles(@Param("id") Long id);
 
     /**
      * Récupère tous les utilisateurs avec leurs relations (EAGER).
      */
     @EntityGraph(attributePaths = {"profile", "roles", "status"})
-    @Query("SELECT u FROM User u")
-    List<User> findAllWithProfileAndRoles();
+    @Query("SELECT u FROM Person u")
+    List<Person> findAllWithProfileAndRoles();
 }

@@ -14,16 +14,16 @@ import java.time.LocalDateTime;
  * Entité représentant le profil d'un utilisateur.
  */
 @Entity
-@Table(name = "user_profile")
+@Table(name = "person_profile")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserProfile {
+public class PersonProfile {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_user_profile")
+    @Column(name = "id_person_profile")
     private Long id;
 
     @Column(name = "lastname", nullable = false, length = 50)
@@ -46,6 +46,6 @@ public class UserProfile {
     private LocalDateTime updatedAt;
 
     @OneToOne
-    @JoinColumn(name = "id_user", nullable = false)
-    private User user;
+    @JoinColumn(name = "id_person", nullable = false)
+    private Person person;
 }

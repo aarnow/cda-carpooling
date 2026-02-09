@@ -14,16 +14,16 @@ import java.util.Set;
  * Table de référence.
  */
 @Entity
-@Table(name = "user_status")
+@Table(name = "person_status")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserStatus {
+public class PersonStatus {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_user_status")
+    @Column(name = "id_person_status")
     private Long id;
 
     @Column(name = "label", nullable = false, unique = true, length = 50)
@@ -34,7 +34,7 @@ public class UserStatus {
 
     @OneToMany(mappedBy = "status")
     @Builder.Default
-    private Set<User> users = new HashSet<>();
+    private Set<Person> people = new HashSet<>();
 
     // Constantes pour les statuts standards
     public static final String ACTIVE = "ACTIVE";

@@ -53,7 +53,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error("Validation échouée")
                 .message(message)
-                .path(request.getDescription(false).replace("uri=", ""))
+                .instance(request.getDescription(false).replace("uri=", ""))
                 .validationErrors(errors)
                 .build();
 
@@ -79,7 +79,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error("JSON invalide")
                 .message(detailedMessage)
-                .path(request.getDescription(false).replace("uri=", ""))
+                .instance(request.getDescription(false).replace("uri=", ""))
                 .build();
 
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
@@ -105,7 +105,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error("Type de paramètre invalide")
                 .message(message)
-                .path(request.getDescription(false).replace("uri=", ""))
+                .instance(request.getDescription(false).replace("uri=", ""))
                 .build();
 
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
@@ -124,7 +124,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.NOT_FOUND.value())
                 .error("Ressource non trouvée")
                 .message(ex.getMessage())
-                .path(request.getDescription(false).replace("uri=", ""))
+                .instance(request.getDescription(false).replace("uri=", ""))
                 .build();
 
         return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
@@ -143,7 +143,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.NOT_FOUND.value())
                 .error("Endpoint non trouvé")
                 .message("L'URL demandée n'existe pas")
-                .path(request.getDescription(false).replace("uri=", ""))
+                .instance(request.getDescription(false).replace("uri=", ""))
                 .build();
 
         return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
@@ -168,7 +168,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.METHOD_NOT_ALLOWED.value())
                 .error("Méthode HTTP non autorisée")
                 .message(message)
-                .path(request.getDescription(false).replace("uri=", ""))
+                .instance(request.getDescription(false).replace("uri=", ""))
                 .build();
 
         return new ResponseEntity<>(errorResponse, HttpStatus.METHOD_NOT_ALLOWED);
@@ -187,7 +187,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.CONFLICT.value())
                 .error("Ressource en doublon")
                 .message(ex.getMessage())
-                .path(request.getDescription(false).replace("uri=", ""))
+                .instance(request.getDescription(false).replace("uri=", ""))
                 .build();
 
         return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
@@ -211,7 +211,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.UNSUPPORTED_MEDIA_TYPE.value())
                 .error("Type de média non supporté")
                 .message(message)
-                .path(request.getDescription(false).replace("uri=", ""))
+                .instance(request.getDescription(false).replace("uri=", ""))
                 .build();
 
         return new ResponseEntity<>(errorResponse, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
@@ -236,7 +236,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.CONFLICT.value())
                 .error("Erreur d'intégrité")
                 .message(message)
-                .path(request.getDescription(false).replace("uri=", ""))
+                .instance(request.getDescription(false).replace("uri=", ""))
                 .build();
 
         return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
@@ -255,7 +255,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .error("Erreur de base de données")
                 .message("Impossible d'accéder à la base de données")
-                .path(request.getDescription(false).replace("uri=", ""))
+                .instance(request.getDescription(false).replace("uri=", ""))
                 .build();
 
         return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -276,7 +276,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .error("Erreur interne du serveur")
                 .message("Une erreur inattendue s'est produite")
-                .path(request.getDescription(false).replace("uri=", ""))
+                .instance(request.getDescription(false).replace("uri=", ""))
                 .build();
 
         return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);

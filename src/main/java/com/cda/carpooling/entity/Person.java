@@ -10,9 +10,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "app_user", indexes = {
-        @Index(name = "idx_user_email", columnList = "email"),
-        @Index(name = "idx_user_status", columnList = "id_user_status")
+@Table(name = "app_person", indexes = {
+        @Index(name = "idx_person_email", columnList = "email"),
+        @Index(name = "idx_person_status", columnList = "id_person_status")
 })
 @Getter
 @Setter
@@ -21,11 +21,11 @@ import java.util.Set;
 @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @ToString(exclude = {"roles", "vehicle", "bookings", "notifications", "profile"})
-public class User {
+public class Person {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_user")
+    @Column(name = "id_person")
     @EqualsAndHashCode.Include
     private Long id;
 
@@ -51,29 +51,29 @@ public class User {
 
     //region Relations
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "id_user_status", nullable = false)
-    private UserStatus status;
+    @JoinColumn(name = "id_person_status", nullable = false)
+    private PersonStatus status;
 
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private UserProfile profile;
+    @OneToOne(mappedBy = "person", cascade = CascadeType.ALL, orphanRemoval = true)
+    private PersonProfile profile;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
-            name = "user_role",
-            joinColumns = @JoinColumn(name = "id_user"),
+            name = "person_role",
+            joinColumns = @JoinColumn(name = "id_person"),
             inverseJoinColumns = @JoinColumn(name = "id_role")
     )
     @Builder.Default
     private Set<Role> roles = new HashSet<>();
 
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToOne(mappedBy = "person", cascade = CascadeType.ALL, orphanRemoval = true)
     private Vehicle vehicle;
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "person", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<Booking> bookings = new HashSet<>();
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "person", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<Notification> notifications = new HashSet<>();
     //endregion
@@ -81,12 +81,12 @@ public class User {
     //region Utils
     public void addRole(Role role) {
         this.roles.add(role);
-        role.getUsers().add(this);
+        role.getPeople().add(this);
     }
 
     public void removeRole(Role role) {
         this.roles.remove(role);
-        role.getUsers().remove(this);
+        role.getPeople().remove(this);
     }
     //endregion
 }

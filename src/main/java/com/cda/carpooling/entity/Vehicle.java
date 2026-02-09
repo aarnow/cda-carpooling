@@ -18,5 +18,5 @@ public class Vehicle {
 
     @OneToOne
     @JoinColumn(name = "id_user")
-    private User user;
+    private Person person;
 }

@@ -29,7 +29,7 @@ public class ErrorResponse {
 
     private String message;
 
-    private String path;
+    private String instance;
 
     private Map<String, String> validationErrors;
 }

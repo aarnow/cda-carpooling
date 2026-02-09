@@ -17,6 +17,6 @@ public class Notification {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "id_user")
-    private User user;
+    @JoinColumn(name = "id_person")
+    private Person person;
 }
