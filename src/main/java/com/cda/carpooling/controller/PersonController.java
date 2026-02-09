@@ -104,9 +104,9 @@ public class PersonController {
 
     /**
      * DELETE /api/persons/{id}
-     * Supprime un utilisateur (soft delete).
+     * Supprime une personne (soft delete).
      *
-     * @param id L'ID de l'utilisateur
+     * @param id L'ID de la personne
      * @return 204 NO CONTENT
      */
     @DeleteMapping("/{id}")
@@ -117,9 +117,9 @@ public class PersonController {
 
     /**
      * DELETE /api/persons/{id}/hard
-     * Supprime définitivement un utilisateur.
+     * Supprime définitivement une personne.
      *
-     * @param id L'ID de l'utilisateur
+     * @param id L'ID de la personne
      * @return 204 NO CONTENT
      */
     @DeleteMapping("/{id}/hard")
@@ -130,11 +130,11 @@ public class PersonController {
 
     /**
      * POST /api/persons/{personId}/roles/{roleLabel}
-     * Assigne un rôle à un utilisateur.
+     * Assigne un rôle à une personne.
      *
-     * @param personId L'ID de l'utilisateur
+     * @param personId L'ID de la personne
      * @param roleLabel Le label du rôle
-     * @return 200 OK avec l'utilisateur mis à jour
+     * @return 200 OK avec la personne mise à jour
      */
     @PostMapping("/{personId}/roles/{roleLabel}")
     public ResponseEntity<@NonNull PersonResponse> assignRole(
@@ -146,11 +146,11 @@ public class PersonController {
 
     /**
      * DELETE /api/persons/{personId}/roles/{roleLabel}
-     * Retire un rôle d'un utilisateur.
+     * Retire un rôle d'une personne.
      *
-     * @param personId L'ID de l'utilisateur
+     * @param personId L'ID de la personne
      * @param roleLabel Le label du rôle
-     * @return 200 OK avec l'utilisateur mis à jour
+     * @return 200 OK avec la personne mise à jour
      */
     @DeleteMapping("/{personId}/roles/{roleLabel}")
     public ResponseEntity<@NonNull PersonResponse> removeRole(
