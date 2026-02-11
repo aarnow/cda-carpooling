@@ -27,8 +27,6 @@ public class PersonProfileResponse {
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate birthday;
 
-    private String avatarUrl;
-
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime updatedAt;
 }

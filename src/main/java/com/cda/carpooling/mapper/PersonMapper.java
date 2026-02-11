@@ -90,7 +90,6 @@ public class PersonMapper {
                 .lastname(profile.getLastname())
                 .phone(profile.getPhone())
                 .birthday(profile.getBirthday())
-                .avatarUrl(profile.getAvatarUrl())
                 .updatedAt(profile.getUpdatedAt())
                 .build();
     }

@@ -1,20 +1,26 @@
 package com.cda.carpooling.service;
 
+import com.cda.carpooling.dto.request.CreatePersonProfileRequest;
 import com.cda.carpooling.dto.request.CreatePersonRequest;
+import com.cda.carpooling.dto.request.UpdatePersonProfileRequest;
 import com.cda.carpooling.dto.request.UpdatePersonRequest;
 import com.cda.carpooling.dto.response.PersonMinimalResponse;
+import com.cda.carpooling.dto.response.PersonProfileResponse;
 import com.cda.carpooling.dto.response.PersonResponse;
 import com.cda.carpooling.entity.Person;
+import com.cda.carpooling.entity.PersonProfile;
 import com.cda.carpooling.entity.Role;
 import com.cda.carpooling.entity.PersonStatus;
 import com.cda.carpooling.exception.ResourceNotFoundException;
 import com.cda.carpooling.exception.DuplicateResourceException;
 import com.cda.carpooling.mapper.PersonMapper;
+import com.cda.carpooling.mapper.PersonProfileMapper;
 import com.cda.carpooling.repository.RoleRepository;
 import com.cda.carpooling.repository.PersonRepository;
 import com.cda.carpooling.repository.PersonStatusRepository;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +39,7 @@ public class PersonService {
     private final PersonStatusRepository personStatusRepository;
     private final RoleRepository roleRepository;
     private final PersonMapper personMapper;
+    private final PersonProfileMapper personProfileMapper;
     private final BCryptPasswordEncoder passwordEncoder;
 
     /**
@@ -57,6 +64,42 @@ public class PersonService {
 
         Person savedPerson = personRepository.save(person);
         return personMapper.toResponse(savedPerson);
+    }
+
+    /**
+     * Crée un profil pour la personne connectée.
+     *
+     * @param personId L'ID de la personne
+     * @param request Les données du profil
+     * @return PersonProfileResponse
+     * @throws DuplicateResourceException Si la personne a déjà un profil
+     */
+    @Transactional
+    public PersonProfileResponse createPersonProfile(Long personId, CreatePersonProfileRequest request) {
+        Person person = personRepository.findById(personId)
+                .orElseThrow(() -> new ResourceNotFoundException("Personne", "id", personId));
+
+        // Vérifier qu'elle n'a pas déjà un profil
+        if (person.getProfile() != null) {
+            throw new DuplicateResourceException("Cette personne possède déjà un profil");
+        }
+
+        // Créer le profil
+        PersonProfile profile = PersonProfile.builder()
+                .lastname(request.getLastname())
+                .firstname(request.getFirstname())
+                .birthday(request.getBirthday())
+                .phone(request.getPhone())
+                .person(person)
+                .build();
+
+        // Associer le profil à la personne
+        person.setProfile(profile);
+
+        // Sauvegarder (cascade)
+        personRepository.save(person);
+
+        return personProfileMapper.toResponse(profile);
     }
 
     /**
@@ -88,53 +131,53 @@ public class PersonService {
     }
 
     /**
-     * Récupère un utilisateur par son email.
-     */
-    @NonNull
-    public PersonResponse getPersonByEmail(String email) {
-        Person person = personRepository.findByEmailWithProfileAndRoles(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "email", email));
-        return personMapper.toResponse(person);
-    }
-
-    /**
      * Met à jour un utilisateur existant.
      */
     @Transactional
-    public PersonResponse updatePerson(Long id, UpdatePersonRequest request) {
-        Person person = personRepository.findByIdWithProfileAndRoles(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
+    public PersonProfileResponse updatePersonProfile(Long personId, UpdatePersonProfileRequest request) {
+        Person person = personRepository.findById(personId)
+                .orElseThrow(() -> new ResourceNotFoundException("Personne", "id", personId));
 
-        if (request.getEmail() != null && !request.getEmail().equals(person.getEmail())) {
-            if (personRepository.existsByEmail(request.getEmail())) {
-                throw new DuplicateResourceException("Utilisateur", "email", request.getEmail());
-            }
+        PersonProfile profile = person.getProfile();
+        if (profile == null) {
+            throw new ResourceNotFoundException("Cette personne n'a pas de profil");
         }
 
-        if (request.getPassword() != null) {
-            request.setPassword(passwordEncoder.encode(request.getPassword()));
+        // Mise à jour partielle (seulement les champs fournis)
+        if (request.getLastname() != null) {
+            profile.setLastname(request.getLastname());
+        }
+        if (request.getFirstname() != null) {
+            profile.setFirstname(request.getFirstname());
+        }
+        if (request.getBirthday() != null) {
+            profile.setBirthday(request.getBirthday());
+        }
+        if (request.getPhone() != null) {
+            profile.setPhone(request.getPhone());
         }
 
-        personMapper.updateEntity(person, request);
-        Person updatedPerson = personRepository.save(person);
-        return personMapper.toResponse(updatedPerson);
+        personRepository.save(person);
+        return personProfileMapper.toResponse(profile);
     }
 
     /**
-     * Supprime un utilisateur.
-     *
-     * Anonymise toutes les données personnelles.
+     * Anonymise toutes les données d'une personne.
      *
      * Conserve :
-     * - Les relations (réservations, trajets) pour obligations légales
+     * - Les relations pour obligations légales
      * - L'ID pour intégrité référentielle
      *
      * @param id L'ID de l'utilisateur
      */
     @Transactional
-    public void deletePerson(Long id) {
+    public PersonResponse softDeletePerson(Long id) {
         Person person = personRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
+
+        if(person.getStatus().equals(PersonStatus.DELETED)) {
+            throw new DuplicateResourceException("Ce compte est déjà anonymisé");
+        }
 
         anonymizePersonalData(person);
         person.setDeletedAt(LocalDateTime.now());
@@ -143,6 +186,7 @@ public class PersonService {
         person.setStatus(deletedStatus);
 
         personRepository.save(person);
+        return personMapper.toResponse(person);
     }
 
     /**
@@ -158,7 +202,6 @@ public class PersonService {
             person.getProfile().setLastname("Supprimé");
             person.getProfile().setPhone(null);
             person.getProfile().setBirthday(null);
-            person.getProfile().setAvatarUrl(null);
         }
     }
 
@@ -166,7 +209,7 @@ public class PersonService {
      * Supprime définitivement un utilisateur.
      */
     @Transactional
-    public void hardDeletePerson(Long id) {
+    public void deletePerson(Long id) {
         if (!personRepository.existsById(id)) {
             throw new ResourceNotFoundException("Utilisateur", "id", id);
         }
