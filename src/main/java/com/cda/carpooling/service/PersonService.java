@@ -48,7 +48,7 @@ public class PersonService {
     @Transactional
     public PersonResponse createPerson(CreatePersonRequest request) {
         if (personRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateResourceException("Utilisateur", "email", request.getEmail());
+            throw new DuplicateResourceException("Personne", "email", request.getEmail());
         }
 
         Person person = personMapper.toEntity(request);
@@ -126,7 +126,7 @@ public class PersonService {
     @NonNull
     public PersonResponse getPersonById(Long id) {
         Person person = personRepository.findByIdWithProfileAndRoles(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException("Personne", "id", id));
         return personMapper.toResponse(person);
     }
 
@@ -173,9 +173,9 @@ public class PersonService {
     @Transactional
     public PersonResponse softDeletePerson(Long id) {
         Person person = personRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException("Personne", "id", id));
 
-        if(person.getStatus().equals(PersonStatus.DELETED)) {
+        if(person.getStatus().getLabel().equals(PersonStatus.DELETED)) {
             throw new DuplicateResourceException("Ce compte est déjà anonymisé");
         }
 
@@ -211,7 +211,7 @@ public class PersonService {
     @Transactional
     public void deletePerson(Long id) {
         if (!personRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Utilisateur", "id", id);
+            throw new ResourceNotFoundException("Personne", "id", id);
         }
         personRepository.deleteById(id);
     }
@@ -222,7 +222,7 @@ public class PersonService {
     @Transactional
     public PersonResponse assignRole(Long personId, String roleLabel) {
         Person person = personRepository.findByIdWithProfileAndRoles(personId)
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", personId));
+                .orElseThrow(() -> new ResourceNotFoundException("Personne", "id", personId));
 
         Role role = roleRepository.findByLabel(roleLabel)
                 .orElseThrow(() -> new ResourceNotFoundException("Rôle", "label", roleLabel));
@@ -238,7 +238,7 @@ public class PersonService {
     @Transactional
     public PersonResponse removeRole(Long personId, String roleLabel) {
         Person person = personRepository.findByIdWithProfileAndRoles(personId)
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", personId));
+                .orElseThrow(() -> new ResourceNotFoundException("Personne", "id", personId));
 
         Role role = roleRepository.findByLabel(roleLabel)
                 .orElseThrow(() -> new ResourceNotFoundException("Rôle", "label", roleLabel));

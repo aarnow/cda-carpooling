@@ -150,7 +150,7 @@ public class PersonController {
      * @return 200 OK avec la personne mise à jour
      */
     @PostMapping("/{personId}/roles/{roleLabel}")
-    @PreAuthorize("hasRole('Admin')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<@NonNull PersonResponse> assignRole(
             @PathVariable Long personId,
             @PathVariable String roleLabel) {
@@ -167,7 +167,7 @@ public class PersonController {
      * @return 200 OK avec la personne mise à jour
      */
     @DeleteMapping("/{personId}/roles/{roleLabel}")
-    @PreAuthorize("hasRole('Admin')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<@NonNull PersonResponse> removeRole(
             @PathVariable Long personId,
             @PathVariable String roleLabel) {
