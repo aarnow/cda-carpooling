@@ -12,8 +12,11 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
 
-    # 🐘 Service PostgreSQL pour CarpoolingApplicationTests
-    services: {}
+    # 🐘 Service PostgreSQL
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged
 
     steps:
       # 1. Récupérer le code
@@ -28,7 +31,13 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # 3. Lancer les tests
+      # 3. Configurer Docker CLI (pour Testcontainers)
+      - name: Set up Docker CLI
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 4. Lancer les tests
       - name: Run tests
         run: mvn clean test -Dspring.profiles.active=test
         env:
