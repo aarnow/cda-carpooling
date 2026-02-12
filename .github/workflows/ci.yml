@@ -13,20 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # 🐘 Service PostgreSQL pour CarpoolingApplicationTests
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: testdb
-          POSTGRES_USER: testuser
-          POSTGRES_PASSWORD: testpassword
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    services: {}
 
     steps:
       # 1. Récupérer le code
@@ -43,12 +30,9 @@ jobs:
 
       # 3. Lancer les tests
       - name: Run tests
-        run: mvn clean test
+        run: mvn clean test -Dspring.profiles.active=test
         env:
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/testdb
-          SPRING_DATASOURCE_USERNAME: testuser
-          SPRING_DATASOURCE_PASSWORD: testpassword
 
       # 4. Publier le rapport JaCoCo
       - name: Upload coverage report
