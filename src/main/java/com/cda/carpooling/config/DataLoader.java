@@ -204,7 +204,7 @@ public class DataLoader {
             return true;
         }
         for (String profile : activeProfiles) {
-            if (profile.equals("dev") || profile.equals("default")) {
+            if (profile.equals("dev") || profile.equals("default") || profile.equals("test")) {
                 return true;
             }
         }
