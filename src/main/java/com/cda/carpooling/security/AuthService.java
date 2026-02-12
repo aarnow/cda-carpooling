@@ -15,6 +15,8 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+
 /**
  * Service d'authentification (login, register).
  */
@@ -47,6 +49,9 @@ public class AuthService {
         String[] roles = person.getRoles().stream()
                 .map(Role::getLabel)
                 .toArray(String[]::new);
+
+        person.setLastLogin(LocalDateTime.now());
+        personRepository.save(person);
 
         return AuthResponse.builder()
                 .token(token)

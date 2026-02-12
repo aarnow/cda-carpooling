@@ -2,13 +2,12 @@ package com.cda.carpooling.controller;
 
 import com.cda.carpooling.dto.request.CreatePersonProfileRequest;
 import com.cda.carpooling.dto.request.UpdatePersonProfileRequest;
-import com.cda.carpooling.dto.request.UpdatePersonRequest;
 import com.cda.carpooling.dto.response.PersonMinimalResponse;
 import com.cda.carpooling.dto.response.PersonProfileResponse;
 import com.cda.carpooling.dto.response.PersonResponse;
-import com.cda.carpooling.entity.Role;
 import com.cda.carpooling.security.SecurityUtils;
 import com.cda.carpooling.service.PersonService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
@@ -25,6 +24,7 @@ import java.util.List;
 /**
  * Contrôleur REST pour la gestion des personnes.
  */
+@Tag(name = "Personnes", description = "Gestion des personnes")
 @RestController
 @RequestMapping("/persons")
 @RequiredArgsConstructor

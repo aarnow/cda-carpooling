@@ -14,6 +14,5 @@ public class AuthResponse {
     private String token;
     private String type = "Bearer";
     private Long userId;
-    private String email;
     private String[] roles;
 }

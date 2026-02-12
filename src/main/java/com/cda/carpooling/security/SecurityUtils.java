@@ -26,7 +26,7 @@ public class SecurityUtils {
      * @throws AccessDeniedException Si non-admin tente d'agir sur un autre utilisateur
      */
     public Long resolveTargetPersonId(Long targetPersonId, Jwt jwt) {
-        Long currentUserId = _extractUserId(jwt);
+        Long currentUserId = extractUserId(jwt);
 
         if (targetPersonId == null) {
             return currentUserId;
@@ -45,7 +45,7 @@ public class SecurityUtils {
      * Vérifie si l'utilisateur a le rôle ADMIN.
      */
     public boolean isAdmin(Jwt jwt) {
-        List<String> roles = _extractRoles(jwt);
+        List<String> roles = extractRoles(jwt);
         return roles != null && roles.contains(Role.ROLE_ADMIN);
     }
 
@@ -53,21 +53,21 @@ public class SecurityUtils {
      * Vérifie si l'utilisateur est propriétaire de la ressource OU admin.
      */
     public boolean isOwnerOrAdmin(Long resourceOwnerId, Jwt jwt) {
-        Long currentUserId = _extractUserId(jwt);
+        Long currentUserId = extractUserId(jwt);
         return resourceOwnerId.equals(currentUserId) || isAdmin(jwt);
     }
 
     /**
      * Extrait l'ID utilisateur du JWT.
      */
-    private Long _extractUserId(Jwt jwt) {
-        return jwt.getClaim("userId");
+    private Long extractUserId(Jwt jwt) {
+        return Long.parseLong(jwt.getSubject());
     }
 
     /**
      * Extrait les rôles du JWT.
      */
-    private List<String> _extractRoles(Jwt jwt) {
+    private List<String> extractRoles(Jwt jwt) {
         return jwt.getClaim("roles");
     }
 }

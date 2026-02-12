@@ -69,8 +69,7 @@ public class JwtService {
                 .issuer(issuer)
                 .issuedAt(now)
                 .expiresAt(expiry)
-                .subject(person.getEmail())
-                .claim("userId", person.getId())
+                .subject(person.getId().toString())
                 .claim("roles", roles)
                 .build();
 
