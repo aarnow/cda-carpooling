@@ -1,11 +1,13 @@
 package com.cda.carpooling.config;
 
+import com.cda.carpooling.entity.Brand;
 import com.cda.carpooling.entity.Person;
 import com.cda.carpooling.entity.Role;
 import com.cda.carpooling.entity.PersonStatus;
 import com.cda.carpooling.repository.RoleRepository;
 import com.cda.carpooling.repository.PersonRepository;
 import com.cda.carpooling.repository.PersonStatusRepository;
+import com.cda.carpooling.repository.BrandRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Service responsable de l'initialisation des données de référence et des fixtures en base de données.
@@ -29,6 +32,7 @@ public class DataLoader {
     private final PersonStatusRepository personStatusRepository;
     private final RoleRepository roleRepository;
     private final PersonRepository personRepository;
+    private final BrandRepository brandRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final Environment environment;
 
@@ -39,6 +43,7 @@ public class DataLoader {
 
         initPersonStatuses();
         initRoles();
+        initBrands();
 
         if (isDevelopmentProfile()) {
             log.info("🧪 Development profile detected - loading test data...");
@@ -48,6 +53,7 @@ public class DataLoader {
         log.info("✅ Database initialization complete!");
     }
 
+    //region REFERENCES
     /**
      * Initialise les statuts utilisateur s'ils n'existent pas déjà en base.
      */
@@ -105,6 +111,60 @@ public class DataLoader {
         }
     }
 
+    private void initBrands() {
+        if (brandRepository.count() > 0) return;
+        log.info("🚗 Creating brands...");
+        List<String> brandNames = List.of(
+                "Mercedes-Benz", "Porsche", "Honda", "Jeep", "Toyota",
+                "Nissan", "BMW", "Chevrolet", "Chrysler", "Tesla",
+                "Buick", "Hyundai", "GMC", "Volvo", "Dodge",
+                "Scion", "Mitsubishi", "Volkswagen", "Saab", "Isuzu",
+                "Kia", "Pontiac", "Mazda", "Lamborghini", "Audi",
+                "Mercury", "Lexus", "Cadillac", "BYD", "Ford",
+                "Bentley", "Jaguar", "Saturn", "Subaru", "Acura",
+                "Eagle", "Suzuki", "Lotus", "Oldsmobile", "Plymouth",
+                "Ferrari", "MINI", "Ram", "Infiniti", "Maserati",
+                "Fiat", "Aston Martin", "Polestar", "Lincoln", "Land Rover",
+                "Karma", "Rivian", "Roush Performance", "Peugeot", "Rolls-Royce",
+                "Tecstar, LP", "Environmental Rsch and Devp Corp", "J.K. Motors",
+                "Genesis", "Federal Coach", "American Motors Corporation", "Geo",
+                "Alfa Romeo", "McLaren Automotive", "Bugatti",
+                "Volga Associated Automobile", "Daihatsu", "smart", "Bertone",
+                "Mcevoy Motors", "PAS Inc - GMC", "Daewoo",
+                "Grumman Allied Industries", "Maybach", "Wallace Environmental",
+                "Pininfarina", "Consulier Industries Inc", "BMW Alpina",
+                "Kenyon Corporation Of America", "Autokraft Limited", "Renault",
+                "Grumman Olson", "CX Automotive", "Lucid", "Import Trade Services",
+                "Morgan", "Hummer", "Merkur", "Pagani",
+                "Dabryan Coach Builders Inc", "Panther Car Company Limited",
+                "Bitter Gmbh and Co. Kg", "Excalibur Autos", "Saleen",
+                "Aurora Cars Ltd", "Spyker", "PAS, Inc", "Vinfast",
+                "Saleen Performance", "Sterling", "AM General", "Evans Automobiles",
+                "Koenigsegg", "RUF Automobile", "CODA Automotive", "Yugo",
+                "Vector", "Kandi", "Bill Dovell Motor Car Company", "Fisker",
+                "TVR Engineering Ltd", "INEOS Automotive", "SRT", "Red Shift Ltd.",
+                "Texas Coach Company", "General Motors", "E. P. Dutton, Inc.",
+                "Mobility Ventures LLC", "Avanti Motor Corporation", "STI",
+                "Ruf Automobile Gmbh", "Dacia", "Superior Coaches Div E.p. Dutton",
+                "CCC Engineering", "Quantum Technologies", "VPG",
+                "Import Foreign Auto Sales Inc", "Vixen Motor Company",
+                "London Taxi", "Laforza Automobile Inc",
+                "S and S Coach Company  E.p. Dutton", "Qvale", "Panos",
+                "London Coach Co Inc", "Mahindra", "Lordstown", "Goldacre",
+                "Panoz Auto-Development", "Shelby", "ASC Incorporated",
+                "Azure Dynamics", "JBA Motorcars, Inc.", "Lambda Control Systems",
+                "Isis Imports Ltd"
+        );
+
+        brandNames.stream()
+                .map(name -> Brand.builder().name(name).build())
+                .forEach(brandRepository::save);
+
+        log.info("✅ {} brands created", brandNames.size());
+    }
+    //endregion
+
+    //region FIXTURES
     /**
      * Initialise les personnes de test (admin, student, driver) UNIQUEMENT en environnement de dev.
      */
@@ -188,6 +248,7 @@ public class DataLoader {
 
         log.info("✅ Driver person: driver@test.fr / Driver@123");
     }
+    //endregion
 
     /**
      * Détermine si l'application est en environnement de développement.

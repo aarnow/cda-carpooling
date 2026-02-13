@@ -124,9 +124,9 @@ public class PersonService {
      * Récupère un utilisateur par son ID.
      */
     @NonNull
-    public PersonResponse getPersonById(Long id) {
-        Person person = personRepository.findByIdWithProfileAndRoles(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Personne", "id", id));
+    public PersonResponse getPersonById(Long personId) {
+        Person person = personRepository.findByIdWithProfileAndRoles(personId)
+                .orElseThrow(() -> new ResourceNotFoundException("Personne", "id", personId));
         return personMapper.toResponse(person);
     }
 
@@ -168,12 +168,12 @@ public class PersonService {
      * - Les relations pour obligations légales
      * - L'ID pour intégrité référentielle
      *
-     * @param id L'ID de l'utilisateur
+     * @param personId L'ID de l'utilisateur
      */
     @Transactional
-    public PersonResponse softDeletePerson(Long id) {
-        Person person = personRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Personne", "id", id));
+    public PersonResponse softDeletePerson(Long personId) {
+        Person person = personRepository.findById(personId)
+                .orElseThrow(() -> new ResourceNotFoundException("Personne", "id", personId));
 
         if(person.getStatus().getLabel().equals(PersonStatus.DELETED)) {
             throw new DuplicateResourceException("Ce compte est déjà anonymisé");
@@ -209,11 +209,11 @@ public class PersonService {
      * Supprime définitivement un utilisateur.
      */
     @Transactional
-    public void deletePerson(Long id) {
-        if (!personRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Personne", "id", id);
+    public void deletePerson(Long personId) {
+        if (!personRepository.existsById(personId)) {
+            throw new ResourceNotFoundException("Personne", "id", personId);
         }
-        personRepository.deleteById(id);
+        personRepository.deleteById(personId);
     }
 
     /**

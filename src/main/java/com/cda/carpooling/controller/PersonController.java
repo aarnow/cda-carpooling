@@ -80,7 +80,6 @@ public class PersonController {
             @Valid @RequestBody CreatePersonProfileRequest request,
             @AuthenticationPrincipal Jwt jwt) {
 
-        // Utiliser SecurityUtils
         Long targetPersonId = securityUtils.resolveTargetPersonId(
                 request.getPersonId(),
                 jwt
