@@ -32,11 +32,6 @@ public class DataLoader {
     private final BCryptPasswordEncoder passwordEncoder;
     private final Environment environment;
 
-    /**
-     * Méthode déclenchée automatiquement après le démarrage complet de l'application (ApplicationReadyEvent).
-     * Initialise les données de référence (statuts, rôles) et, en environnement de développement, les personnes de test.
-     * @Transactional : Garantit que toutes les opérations de base de données sont exécutées dans une seule transaction.
-     */
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void onApplicationReady() {

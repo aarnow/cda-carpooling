@@ -9,8 +9,11 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.JwtValidationException;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
 
@@ -28,11 +31,14 @@ class JwtServiceTest {
     private static final long EXPIRATION_MS = 900000;
 
     private JwtService jwtService;
+    private Clock fixedClock;
     private Person testPerson;
 
     @BeforeEach
     void setUp() {
-        jwtService = new JwtService(SECRET_KEY, ISSUER, EXPIRATION_MS);
+        Instant now = Instant.now();
+        fixedClock = Clock.fixed(now, ZoneId.of("UTC"));
+        jwtService = new JwtService(SECRET_KEY, ISSUER, EXPIRATION_MS, fixedClock);
 
         Role studentRole = Role.builder()
                 .id(1L)
@@ -160,15 +166,15 @@ class JwtServiceTest {
         @Test
         @DisplayName("Devrait rejeter un token expiré")
         void shouldRejectExpiredToken() {
-            // Given
-            JwtService shortLivedJwtService = new JwtService(SECRET_KEY, ISSUER, 100L);
-            String expiredToken = shortLivedJwtService.generateToken(testPerson);
+            String token = jwtService.generateToken(testPerson);
 
-            try { Thread.sleep(200); } catch (InterruptedException ignored) {}
+            Instant futureInstant = fixedClock.instant().plus(Duration.ofMinutes(20));
+            Clock futureClock = Clock.fixed(futureInstant, ZoneId.of("UTC"));
+            JwtService futureJwtService = new JwtService(SECRET_KEY, ISSUER, EXPIRATION_MS, futureClock);
 
-            // When & Then
-            assertThatThrownBy(() -> jwtService.validateToken(expiredToken))
-                    .isInstanceOf(BadJwtException.class);
+            assertThatThrownBy(() -> futureJwtService.validateToken(token))
+                    .isInstanceOf(BadJwtException.class)
+                    .hasMessageContaining("expired");
         }
 
         @Test
@@ -178,7 +184,8 @@ class JwtServiceTest {
             JwtService otherJwtService = new JwtService(
                     "AutreSecretKeyCompletelyDifferent1234567890ABCDEF",
                     ISSUER,
-                    EXPIRATION_MS
+                    EXPIRATION_MS,
+                    fixedClock
             );
             String tokenFromOtherService = otherJwtService.generateToken(testPerson);
 

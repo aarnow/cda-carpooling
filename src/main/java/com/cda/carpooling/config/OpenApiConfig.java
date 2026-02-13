@@ -1,6 +1,5 @@
 package com.cda.carpooling.config;
 
-// ✅ Tout depuis io.swagger.v3.oas.MODELS (pas annotations !)
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;

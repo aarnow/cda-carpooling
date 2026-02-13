@@ -35,9 +35,7 @@ public class SecurityConfig {
                 //TODO: ajouter une config cors
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/v3/api-docs/**"
+                                "/swagger-ui.html"
                         ).permitAll()
                         .requestMatchers("/health", "/login", "/register").permitAll()
                         .anyRequest().authenticated()
