@@ -8,9 +8,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/**
- * DTO minimal : seulement l'essentiel (id, email, status).
- */
 @Data
 @Builder
 @NoArgsConstructor

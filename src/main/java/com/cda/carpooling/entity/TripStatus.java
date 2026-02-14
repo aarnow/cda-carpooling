@@ -7,33 +7,32 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "app_role")
+@Table(name = "trip_status")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(exclude = "persons")
-public class Role {
-
-    public static final String ROLE_STUDENT = "ROLE_STUDENT";
-    public static final String ROLE_DRIVER = "ROLE_DRIVER";
-    public static final String ROLE_ADMIN = "ROLE_ADMIN";
-
+@ToString(exclude = "trips")
+public class TripStatus {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_role")
+    @Column(name = "id_trip_status")
     @EqualsAndHashCode.Include
     private Long id;
 
     @Column(name = "label", nullable = false, unique = true, length = 50)
     private String label;
 
-    @Column(name = "description")
-    private String description;
-
-    @ManyToMany(mappedBy = "roles")
+    //relations
+    @OneToMany(mappedBy = "tripStatus")
     @Builder.Default
-    private Set<Person> persons = new HashSet<>();
+    private Set<Trip> trips = new HashSet<>();
+
+    //constantes
+    public static final String PLANNED = "PLANNED";
+    public static final String IN_PROGRESS = "IN_PROGRESS";
+    public static final String COMPLETED = "COMPLETED";
+    public static final String CANCELLED = "CANCELLED";
 }

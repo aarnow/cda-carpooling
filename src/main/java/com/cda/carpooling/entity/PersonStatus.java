@@ -36,7 +36,7 @@ public class PersonStatus {
     @Builder.Default
     private Set<Person> people = new HashSet<>();
 
-    // Constantes pour les statuts standards
+    //constantes
     public static final String ACTIVE = "ACTIVE";
     public static final String PENDING = "PENDING";
     public static final String SUSPENDED = "SUSPENDED";

@@ -1,13 +1,7 @@
 package com.cda.carpooling.config;
 
-import com.cda.carpooling.entity.Brand;
-import com.cda.carpooling.entity.Person;
-import com.cda.carpooling.entity.Role;
-import com.cda.carpooling.entity.PersonStatus;
-import com.cda.carpooling.repository.RoleRepository;
-import com.cda.carpooling.repository.PersonRepository;
-import com.cda.carpooling.repository.PersonStatusRepository;
-import com.cda.carpooling.repository.BrandRepository;
+import com.cda.carpooling.entity.*;
+import com.cda.carpooling.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -33,6 +27,8 @@ public class DataLoader {
     private final RoleRepository roleRepository;
     private final PersonRepository personRepository;
     private final BrandRepository brandRepository;
+    private final TripStatusRepository tripStatusRepository;
+    private final ReservationStatusRepository reservationStatusRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final Environment environment;
 
@@ -43,6 +39,8 @@ public class DataLoader {
 
         initPersonStatuses();
         initRoles();
+        initTripStatus();
+        initReservationStatus();
         initBrands();
 
         if (isDevelopmentProfile()) {
@@ -108,6 +106,52 @@ public class DataLoader {
                     .build());
 
             log.info("✅ Roles created");
+        }
+    }
+
+    /**
+     * Initialise les états des covoiturages
+     */
+    private void initTripStatus() {
+        if (tripStatusRepository.count() == 0) {
+            log.info("📊 Creating trip status...");
+
+            tripStatusRepository.save(TripStatus.builder()
+                    .label(TripStatus.CANCELLED)
+                    .build());
+
+            tripStatusRepository.save(TripStatus.builder()
+                    .label(TripStatus.PLANNED)
+                    .build());
+
+            tripStatusRepository.save(TripStatus.builder()
+                    .label(TripStatus.IN_PROGRESS)
+                    .build());
+
+            tripStatusRepository.save(TripStatus.builder()
+                    .label(TripStatus.COMPLETED)
+                    .build());
+
+            log.info("✅ Trip status created");
+        }
+    }
+
+    /**
+     * Initialise les états des réservations
+     */
+    private void initReservationStatus() {
+        if (reservationStatusRepository.count() == 0) {
+            log.info("📊 Creating reservations status...");
+
+            reservationStatusRepository.save(ReservationStatus.builder()
+                    .label(ReservationStatus.CONFIRMED)
+                    .build());
+
+            reservationStatusRepository.save(ReservationStatus.builder()
+                    .label(ReservationStatus.CANCELLED)
+                    .build());
+
+            log.info("✅ Reservations status created");
         }
     }
 

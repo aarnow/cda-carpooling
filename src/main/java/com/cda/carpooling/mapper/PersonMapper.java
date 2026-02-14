@@ -50,10 +50,8 @@ public class PersonMapper {
     }
 
     /**
-     * Convertit Set<Role> → Set<String> de manière sécurisée.
+     * Convertit Set<Role> en Set<String> de manière sécurisée.
      * Crée une copie défensive du Set pour éviter ConcurrentModificationException
-     * si la collection Hibernate est lazy-loadée et modifiée pendant l'itération.
-     * Extrait uniquement les labels des rôles (ex: "ROLE_STUDENT", "ROLE_DRIVER").
      *
      * @param roles Collection de rôles
      * @return Set immutable de labels de rôles, ou Set.of() si vide/null

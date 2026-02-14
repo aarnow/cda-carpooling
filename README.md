@@ -32,3 +32,9 @@ docker-compose ps
 ```bash
 docker-compose down
 ```
+___
+# Todo : 
+- lister les dépendances
+- indiquer l'emplacement des diagrammes
+- parler de la couverture de tests avec Jacoco
+- parler de CI/CD avec Render

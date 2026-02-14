@@ -52,8 +52,8 @@ public class VehicleService {
     /**
      * Crée un véhicule pour une personne.
      * Une personne ne peut posséder qu'un seul véhicule.
-     *
-     * @param targetPersonId ID de la personne cible (résolu par le controller via SecurityUtils)
+     * TODO : La création d'un véhicule accorde le role DRIVER
+     * @param targetPersonId ID de la personne cible
      * @param request        Données du véhicule
      */
     @Transactional
@@ -115,6 +115,8 @@ public class VehicleService {
 
     /**
      * Supprime un véhicule.
+     * TODO : La suppression du véhicule retire le role DRIVER de son propriétaire
+     * TODO : la suppression doit entrainer l'annulation des trips à venir avec ce conducteur
      */
     @Transactional
     public void deleteVehicle(Long vehicleId) {

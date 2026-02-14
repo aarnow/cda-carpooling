@@ -60,7 +60,7 @@ public class SecurityUtils {
     /**
      * Extrait l'ID utilisateur du JWT.
      */
-    private Long extractUserId(Jwt jwt) {
+    public Long extractUserId(Jwt jwt) {
         return Long.parseLong(jwt.getSubject());
     }
 

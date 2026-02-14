@@ -19,21 +19,21 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
     boolean existsByEmail(String email);
 
     /**
-     * Trouve un utilisateur par email avec son profil et ses rôles (EAGER).
+     * Trouve un utilisateur par email avec son profil et ses rôles.
      */
     @EntityGraph(attributePaths = {"profile", "roles", "status"})
     @Query("SELECT u FROM Person u WHERE u.email = :email")
     Optional<Person> findByEmailWithProfileAndRoles(@Param("email") String email);
 
     /**
-     * Trouve un utilisateur par ID avec son profil et ses rôles (EAGER).
+     * Trouve un utilisateur par ID avec son profil et ses rôles.
      */
     @EntityGraph(attributePaths = {"profile", "roles", "status"})
     @Query("SELECT u FROM Person u WHERE u.id = :id")
     Optional<Person> findByIdWithProfileAndRoles(@Param("id") Long id);
 
     /**
-     * Récupère tous les utilisateurs avec leurs relations (EAGER).
+     * Récupère tous les utilisateurs avec leurs relations.
      */
     @EntityGraph(attributePaths = {"profile", "roles", "status"})
     @Query("SELECT u FROM Person u")

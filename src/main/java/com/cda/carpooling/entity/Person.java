@@ -20,7 +20,7 @@ import java.util.Set;
 @AllArgsConstructor
 @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(exclude = {"roles", "vehicle", "bookings", "notifications", "profile"})
+@ToString(exclude = {"roles", "vehicle", "reservations", "notifications", "profile"})
 public class Person {
 
     @Id
@@ -71,7 +71,11 @@ public class Person {
 
     @OneToMany(mappedBy = "person", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private Set<Booking> bookings = new HashSet<>();
+    private Set<Reservation> reservations = new HashSet<>();
+
+    @OneToMany(mappedBy = "driver")
+    @Builder.Default
+    private Set<Trip> trips = new HashSet<>();
 
     @OneToMany(mappedBy = "person", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
@@ -81,12 +85,12 @@ public class Person {
     //region Utils
     public void addRole(Role role) {
         this.roles.add(role);
-        role.getPeople().add(this);
+        role.getPersons().add(this);
     }
 
     public void removeRole(Role role) {
         this.roles.remove(role);
-        role.getPeople().remove(this);
+        role.getPersons().remove(this);
     }
     //endregion
 }
