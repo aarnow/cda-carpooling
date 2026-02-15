@@ -1,6 +1,7 @@
 package com.cda.carpooling.service;
 
-import com.cda.carpooling.dto.request.AddressRequest;
+import com.cda.carpooling.dto.request.CreateAddressRequest;
+import com.cda.carpooling.dto.request.UpdateAddressRequest;
 import com.cda.carpooling.dto.response.AddressResponse;
 import com.cda.carpooling.entity.Address;
 import com.cda.carpooling.entity.City;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -67,7 +69,21 @@ public class AddressService {
             }
         });
 
-        return apiResults;
+        return apiResults.stream()
+                .filter(result -> result.getCity() != null && result.getStreetName() != null)
+                .map(result -> addressRepository
+                        .findByStreetNameAndStreetNumberAndCityId(
+                                result.getStreetName(),
+                                result.getStreetNumber(),
+                                cityRepository.findByName(result.getCity().getName())
+                                        .map(City::getId)
+                                        .orElse(null)
+                        )
+                        .map(addressMapper::toResponse)
+                        .orElse(null)
+                )
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -84,7 +100,7 @@ public class AddressService {
     }
 
     @Transactional
-    public AddressResponse createAddress(AddressRequest request) {
+    public AddressResponse createAddress(CreateAddressRequest request) {
         City city = cityService.findCityOrThrow(request.getCityId());
 
         Address address = buildAddress(request, city);
@@ -94,15 +110,29 @@ public class AddressService {
     }
 
     @Transactional
-    public AddressResponse updateAddress(Long id, AddressRequest request) {
+    public AddressResponse updateAddress(Long id, UpdateAddressRequest request) {
         Address address = findAddressOrThrow(id);
-        City city = cityService.findCityOrThrow(request.getCityId());
 
-        address.setStreetNumber(request.getStreetNumber());
-        address.setStreetName(request.getStreetName());
-        address.setLatitude(request.getLatitude());
-        address.setLongitude(request.getLongitude());
-        address.setCity(city);
+        if(request.getStreetName() != null){
+            address.setStreetName(request.getStreetName());
+        }
+
+        if(request.getStreetNumber() != null){
+            address.setStreetNumber(request.getStreetNumber());
+        }
+
+        if(request.getLatitude() != null){
+            address.setLatitude(request.getLatitude());
+        }
+
+        if(request.getLongitude() != null){
+            address.setLongitude(request.getLongitude());
+        }
+
+        if(request.getCityId() != null){
+            City city = cityService.findCityOrThrow(request.getCityId());
+            address.setCity(city);
+        }
 
         Address updated = addressRepository.save(address);
 
@@ -119,7 +149,7 @@ public class AddressService {
      * Recherche une adresse existante ou la crée si elle n'existe pas.
      */
     @Transactional
-    public Address findOrCreate(AddressRequest request) {
+    public Address findOrCreate(CreateAddressRequest request) {
         City city = cityService.findCityOrThrow(request.getCityId());
 
         return addressRepository
@@ -140,7 +170,7 @@ public class AddressService {
                 .orElseThrow(() -> new ResourceNotFoundException("Adresse", "id", id));
     }
 
-    private Address buildAddress(AddressRequest request, City city) {
+    private Address buildAddress(CreateAddressRequest request, City city) {
         return Address.builder()
                 .streetNumber(request.getStreetNumber())
                 .streetName(request.getStreetName())

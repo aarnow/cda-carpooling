@@ -1,6 +1,7 @@
 package com.cda.carpooling.controller;
 
-import com.cda.carpooling.dto.request.CityRequest;
+import com.cda.carpooling.dto.request.CreateCityRequest;
+import com.cda.carpooling.dto.request.UpdateCityRequest;
 import com.cda.carpooling.dto.response.CityResponse;
 import com.cda.carpooling.service.CityService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -52,18 +53,18 @@ public class CityController {
      */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<CityResponse> createCity(@Valid @RequestBody CityRequest request) {
+    public ResponseEntity<CityResponse> createCity(@Valid @RequestBody CreateCityRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(cityService.createCity(request));
     }
 
     /**
-     * PUT /cities/{id}
+     * PATCH /cities/{id}
      */
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CityResponse> updateCity(
             @PathVariable Long id,
-            @Valid @RequestBody CityRequest request) {
+            @Valid @RequestBody UpdateCityRequest request) {
         return ResponseEntity.ok(cityService.updateCity(id, request));
     }
 

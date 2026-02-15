@@ -20,6 +20,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Tag(name = "Trajets", description = "Gestion des trajets")
@@ -28,7 +30,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TripController {
 
-    private final ReservationRepository reservationRepository;
     private final TripService tripService;
     private final SecurityUtils securityUtils;
 
@@ -38,8 +39,11 @@ public class TripController {
      * Accessible à tous les utilisateurs authentifiés.
      */
     @GetMapping
-    public ResponseEntity<List<TripMinimalResponse>> getAllTrips() {
-        return ResponseEntity.ok(tripService.getAllTrips());
+    public ResponseEntity<List<TripMinimalResponse>> getAllTrips(
+            @RequestParam(required = false) LocalDate tripDate,
+            @RequestParam(required = false) String startingCity,
+            @RequestParam(required = false) String arrivalCity) {
+        return ResponseEntity.ok(tripService.getAllTrips(tripDate, startingCity, arrivalCity));
     }
 
     /**

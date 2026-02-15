@@ -1,13 +1,16 @@
 package com.cda.carpooling.mapper;
 
-import com.cda.carpooling.dto.request.AddressRequest;
+import com.cda.carpooling.dto.request.CreateAddressRequest;
 import com.cda.carpooling.dto.response.AddressResponse;
-import com.cda.carpooling.dto.response.CityResponse;
 import com.cda.carpooling.entity.Address;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@AllArgsConstructor
 public class AddressMapper {
+    private final CityMapper cityMapper;
+
     public AddressResponse toResponse(Address address) {
         if(address == null){
             return null;
@@ -19,20 +22,17 @@ public class AddressMapper {
                 .streetName(address.getStreetName())
                 .latitude(address.getLatitude())
                 .longitude(address.getLongitude())
-                .city(CityResponse.builder()
-                        .id(address.getCity().getId())
-                        .name(address.getCity().getName())
-                        .postalCode(address.getCity().getPostalCode())
-                        .build())
+                .city(cityMapper.toResponse(address.getCity()))
+                .validated(address.isValidated())
                 .build();
     }
 
-    public AddressRequest toRequest(Address address) {
+    public CreateAddressRequest toRequest(Address address) {
         if(address == null){
             return null;
         }
 
-        return AddressRequest.builder()
+        return CreateAddressRequest.builder()
                 .streetName(address.getStreetName())
                 .streetNumber(address.getStreetNumber())
                 .cityId(address.getCity().getId())

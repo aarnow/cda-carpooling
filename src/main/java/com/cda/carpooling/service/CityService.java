@@ -1,6 +1,7 @@
 package com.cda.carpooling.service;
 
-import com.cda.carpooling.dto.request.CityRequest;
+import com.cda.carpooling.dto.request.CreateCityRequest;
+import com.cda.carpooling.dto.request.UpdateCityRequest;
 import com.cda.carpooling.dto.response.CityResponse;
 import com.cda.carpooling.entity.City;
 import com.cda.carpooling.exception.DuplicateResourceException;
@@ -75,7 +76,7 @@ public class CityService {
      * Crée une ville manuellement.
      */
     @Transactional
-    public CityResponse createCity(CityRequest request) {
+    public CityResponse createCity(CreateCityRequest request) {
         if (cityRepository.existsByName(request.getName())) {
             throw new DuplicateResourceException(
                     "Une ville avec le nom '" + request.getName() + "' existe déjà"
@@ -95,7 +96,7 @@ public class CityService {
      * Met à jour une ville.
      */
     @Transactional
-    public CityResponse updateCity(Long id, CityRequest request) {
+    public CityResponse updateCity(Long id, UpdateCityRequest request) {
         City city = findCityOrThrow(id);
 
         if (!city.getName().equals(request.getName())
@@ -105,8 +106,13 @@ public class CityService {
             );
         }
 
-        city.setName(request.getName());
-        city.setPostalCode(request.getPostalCode());
+        if(request.getName() != null){
+            city.setName(request.getName());
+        }
+
+        if(request.getPostalCode() != null){
+            city.setPostalCode(request.getPostalCode());
+        }
 
         City updated = cityRepository.save(city);
         return cityMapper.toResponse(updated);

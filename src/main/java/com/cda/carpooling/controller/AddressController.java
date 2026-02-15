@@ -1,6 +1,7 @@
 package com.cda.carpooling.controller;
 
-import com.cda.carpooling.dto.request.AddressRequest;
+import com.cda.carpooling.dto.request.CreateAddressRequest;
+import com.cda.carpooling.dto.request.UpdateAddressRequest;
 import com.cda.carpooling.dto.response.AddressResponse;
 import com.cda.carpooling.service.AddressService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,7 +24,6 @@ public class AddressController {
 
     /**
      * GET /addresses
-     * Accessible à tous les utilisateurs authentifiés.
      */
     @GetMapping
     public ResponseEntity<List<AddressResponse>> getAllAddresses() {
@@ -32,7 +32,6 @@ public class AddressController {
 
     /**
      * GET /addresses/{id}
-     * Accessible à tous les utilisateurs authentifiés.
      */
     @GetMapping("/{id}")
     public ResponseEntity<AddressResponse> getAddressById(@PathVariable Long id) {
@@ -56,19 +55,19 @@ public class AddressController {
      */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AddressResponse> createAddress(@Valid @RequestBody AddressRequest request) {
+    public ResponseEntity<AddressResponse> createAddress(@Valid @RequestBody CreateAddressRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(addressService.createAddress(request));
     }
 
     /**
-     * PUT /addresses/{id}
+     * PATCH /addresses/{id}
      * Réservé aux administrateurs.
      */
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AddressResponse> updateAddress(
             @PathVariable Long id,
-            @Valid @RequestBody AddressRequest request) {
+            @Valid @RequestBody UpdateAddressRequest request) {
         return ResponseEntity.ok(addressService.updateAddress(id, request));
     }
 

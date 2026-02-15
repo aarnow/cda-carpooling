@@ -14,8 +14,10 @@ public class AddressResponse {
     private Long id;
     private String streetNumber;
     private String streetName;
+
     private Double latitude;
     private Double longitude;
+    private boolean validated;
 
     private CityResponse city;
 }

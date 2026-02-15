@@ -1,6 +1,6 @@
 package com.cda.carpooling.service;
 
-import com.cda.carpooling.dto.request.AddressRequest;
+import com.cda.carpooling.dto.request.CreateAddressRequest;
 import com.cda.carpooling.dto.request.CreateTripRequest;
 import com.cda.carpooling.dto.request.UpdateTripRequest;
 import com.cda.carpooling.dto.response.PersonMinimalResponse;
@@ -13,13 +13,16 @@ import com.cda.carpooling.mapper.AddressMapper;
 import com.cda.carpooling.mapper.ReservationMapper;
 import com.cda.carpooling.mapper.TripMapper;
 import com.cda.carpooling.repository.*;
+import com.cda.carpooling.specification.TripSpecification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -36,8 +39,17 @@ public class TripService {
     private final AddressService addressService;
 
     @Transactional(readOnly = true)
-    public List<TripMinimalResponse> getAllTrips() {
-        return tripRepository.findAll()
+    public List<TripMinimalResponse> getAllTrips(
+            LocalDate tripDate,
+            String startingCityId,
+            String arrivalCityId) {
+
+        Specification<Trip> spec = Specification
+                .where(TripSpecification.hasDate(tripDate))
+                .and(TripSpecification.hasDepartureCity(startingCityId))
+                .and(TripSpecification.hasArrivingCity(arrivalCityId));
+
+        return tripRepository.findAll(spec)
                 .stream()
                 .map(tripMapper::toMinimalResponse)
                 .toList();
@@ -242,7 +254,7 @@ public class TripService {
      * Construit un AddressRequest minimal depuis un ID existant.
      * Utilisé pour le findOrCreate quand l'adresse est fournie par ID.
      */
-    private AddressRequest buildAddressRequest(Long addressId) {
+    private CreateAddressRequest buildAddressRequest(Long addressId) {
         Address existing = addressService.findAddressOrThrow(addressId);
         return addressMapper.toRequest(existing);
     }
