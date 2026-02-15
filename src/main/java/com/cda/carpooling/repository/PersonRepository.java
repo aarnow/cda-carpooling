@@ -38,4 +38,7 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
     @EntityGraph(attributePaths = {"profile", "roles", "status"})
     @Query("SELECT u FROM Person u")
     List<Person> findAllWithProfileAndRoles();
+
+    // TODO
+    Optional<Person> findByEmail(String email);
 }

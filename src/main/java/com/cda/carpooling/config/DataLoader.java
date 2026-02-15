@@ -29,6 +29,11 @@ public class DataLoader {
     private final BrandRepository brandRepository;
     private final TripStatusRepository tripStatusRepository;
     private final ReservationStatusRepository reservationStatusRepository;
+    private final VehicleRepository vehicleRepository;
+    private final CityRepository cityRepository;
+    private final AddressRepository addressRepository;
+    private final TripRepository tripRepository;
+    private final ReservationRepository reservationRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final Environment environment;
 
@@ -46,6 +51,11 @@ public class DataLoader {
         if (isDevelopmentProfile()) {
             log.info("🧪 Development profile detected - loading test data...");
             initTestPersons();
+            initVehicles();
+            initCities();
+            initAddresses();
+            initTrips();
+            initReservations();
         }
 
         log.info("✅ Database initialization complete!");
@@ -224,12 +234,14 @@ public class DataLoader {
                 .orElseThrow(() -> new IllegalStateException("ACTIVE status not found"));
 
         createAdminPerson(activeStatus);
-        createStudentPerson(activeStatus);
+        createStudentPerson(activeStatus, "student1@test.fr", "Student1@123");
+        createStudentPerson(activeStatus, "student2@test.fr", "Student2@123");
+        createStudentPerson(activeStatus, "student3@test.fr", "Student3@123");
         createDriverPerson(activeStatus);
 
         log.info("✅ Test persons created");
     }
-
+    //region create persons
     /**
      * Crée un utilisateur admin avec le rôle ADMIN.
      */
@@ -253,21 +265,19 @@ public class DataLoader {
     /**
      * Crée un utilisateur étudiant avec le rôle STUDENT.
      */
-    private void createStudentPerson(PersonStatus activeStatus) {
+    private void createStudentPerson(PersonStatus activeStatus, String email, String password) {
         Role studentRole = roleRepository.findByLabel(Role.ROLE_STUDENT)
                 .orElseThrow(() -> new IllegalStateException("STUDENT role not found"));
 
         Person student = Person.builder()
-                .email("student@test.fr")
-                .password(passwordEncoder.encode("Student@123"))
+                .email(email)
+                .password(passwordEncoder.encode(password))
                 .status(activeStatus)
-                .createdAt(LocalDateTime.now())
                 .build();
 
         student.getRoles().add(studentRole);
         personRepository.save(student);
-
-        log.info("✅ Student person: student@test.fr / Student@123");
+        log.info("✅ Student person created : {} / {}", email, password);
     }
 
     /**
@@ -291,6 +301,184 @@ public class DataLoader {
         personRepository.save(driver);
 
         log.info("✅ Driver person: driver@test.fr / Driver@123");
+    }
+    //endregion
+
+    /**
+     * Crée un véhicule Renault Clio pour le conducteur.
+     */
+    private void initVehicles() {
+        if (vehicleRepository.count() > 0) {
+            log.info("⏭️  Vehicles already exist, skipping...");
+            return;
+        }
+
+        log.info("🚗 Creating vehicles...");
+
+        Person driver = personRepository.findByEmail("driver@test.fr")
+                .orElseThrow(() -> new IllegalStateException("Driver not found"));
+
+        Brand renault = brandRepository.findByName("Renault")
+                .orElseThrow(() -> new IllegalStateException("Renault brand not found"));
+
+        Vehicle vehicle = Vehicle.builder()
+                .person(driver)
+                .brand(renault)
+                .model("Clio")
+                .seats(4)
+                .plate("AB-123-CD")
+                .description("Voiture confortable et économique")
+                .build();
+
+        vehicleRepository.save(vehicle);
+        log.info("✅ Vehicle created : Renault Clio (AB-123-CD) for driver@test.fr");
+    }
+
+    /**
+     * Crée les villes de Séné et Vannes.
+     */
+    private void initCities() {
+        if (cityRepository.count() > 0) {
+            log.info("⏭️  Cities already exist, skipping...");
+            return;
+        }
+
+        log.info("🏙️ Creating cities...");
+
+        cityRepository.save(City.builder()
+                .name("Séné")
+                .postalCode("56860")
+                .build());
+
+        cityRepository.save(City.builder()
+                .name("Vannes")
+                .postalCode("56000")
+                .build());
+
+        log.info("✅ Cities created : Séné, Vannes");
+    }
+
+    /**
+     * Crée une adresse de départ à Séné et une adresse d'arrivée à Vannes.
+     */
+    private void initAddresses() {
+        if (addressRepository.count() > 0) {
+            log.info("⏭️  Addresses already exist, skipping...");
+            return;
+        }
+
+        log.info("📍 Creating addresses...");
+
+        City sene = cityRepository.findByName("Séné")
+                .orElseThrow(() -> new IllegalStateException("Séné city not found"));
+
+        City vannes = cityRepository.findByName("Vannes")
+                .orElseThrow(() -> new IllegalStateException("Vannes city not found"));
+
+        addressRepository.save(Address.builder()
+                .streetNumber("5")
+                .streetName("Rue de la Forêt")
+                .city(sene)
+                .latitude(47.6008)
+                .longitude(-2.6892)
+                .build());
+
+        addressRepository.save(Address.builder()
+                .streetNumber("1")
+                .streetName("Place de la République")
+                .city(vannes)
+                .latitude(47.6559)
+                .longitude(-2.7603)
+                .build());
+
+        log.info("✅ Addresses created : Séné → Vannes");
+    }
+
+    /**
+     * Crée un trajet Séné → Vannes proposé par le conducteur.
+     * Départ dans 7 jours à 8h30, 3 places disponibles.
+     */
+    private void initTrips() {
+        if (tripRepository.count() > 0) {
+            log.info("⏭️  Trips already exist, skipping...");
+            return;
+        }
+
+        log.info("🗺️ Creating trips...");
+
+        Person driver = personRepository.findByEmail("driver@test.fr")
+                .orElseThrow(() -> new IllegalStateException("Driver not found"));
+
+        TripStatus plannedStatus = tripStatusRepository.findByLabel(TripStatus.PLANNED)
+                .orElseThrow(() -> new IllegalStateException("PLANNED status not found"));
+
+        Address departure = addressRepository.findAll().stream()
+                .filter(a -> a.getCity().getName().equals("Séné"))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Séné address not found"));
+
+        Address arriving = addressRepository.findAll().stream()
+                .filter(a -> a.getCity().getName().equals("Vannes"))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Vannes address not found"));
+
+        Trip trip = Trip.builder()
+                .driver(driver)
+                .tripDatetime(LocalDateTime.now().plusDays(7).withHour(8).withMinute(30).withSecond(0))
+                .availableSeats(3)
+                .smokingAllowed(false)
+                .tripStatus(plannedStatus)
+                .departureAddress(departure)
+                .arrivingAddress(arriving)
+                .build();
+
+        tripRepository.save(trip);
+        log.info("✅ Trip created : Séné → Vannes in 7 days (3 seats available)");
+    }
+
+    /**
+     * Crée 2 réservations sur le trajet Séné → Vannes.
+     * student1 et student2 réservent, student3 ne réserve pas.
+     */
+    private void initReservations() {
+        if (reservationRepository.count() > 0) {
+            log.info("⏭️  Reservations already exist, skipping...");
+            return;
+        }
+
+        log.info("📋 Creating reservations...");
+
+        ReservationStatus pendingStatus = reservationStatusRepository.findByLabel(ReservationStatus.CONFIRMED)
+                .orElseThrow(() -> new IllegalStateException("PENDING status not found"));
+
+        Trip trip = tripRepository.findAll().stream()
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No trip found"));
+
+        Person student1 = personRepository.findByEmail("student1@test.fr")
+                .orElseThrow(() -> new IllegalStateException("Student1 not found"));
+
+        Person student2 = personRepository.findByEmail("student2@test.fr")
+                .orElseThrow(() -> new IllegalStateException("Student2 not found"));
+
+        reservationRepository.save(Reservation.builder()
+                .trip(trip)
+                .person(student1)
+                .reservationStatus(pendingStatus)
+                .build());
+
+        reservationRepository.save(Reservation.builder()
+                .trip(trip)
+                .person(student2)
+                .reservationStatus(pendingStatus)
+                .build());
+
+        // Mettre à jour les places disponibles sur le trajet
+        trip.setAvailableSeats(trip.getAvailableSeats() - 2);
+        tripRepository.save(trip);
+
+        log.info("✅ Reservations created : student1 + student2 on Séné → Vannes trip");
+        log.info("⏭️  student3@test.fr has no reservation (as expected)");
     }
     //endregion
 

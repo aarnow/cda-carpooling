@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -43,8 +44,8 @@ public class TripService {
     }
 
     @Transactional(readOnly = true)
-    public TripResponse getTripById(Long id) {
-        return tripMapper.toResponse(findTripOrThrow(id));
+    public TripMinimalResponse getTripById(Long id) {
+        return tripMapper.toMinimalResponse(findTripOrThrow(id));
     }
 
     /**
@@ -58,6 +59,7 @@ public class TripService {
                 .filter(r -> !r.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED))
                 .map(r -> PersonMinimalResponse.builder()
                         .id(r.getPerson().getId())
+                        .email(r.getPerson().getEmail())
                         .status(r.getPerson().getStatus().getLabel())
                         .build())
                 .toList();
@@ -175,6 +177,15 @@ public class TripService {
 
     // TODO : Peut être séparer via un ReservationService
     //region Utils
+    @Transactional(readOnly = true)
+    public boolean isPersonRelatedToTrip(Long personId, Long tripId) {
+        boolean isPassenger = reservationRepository
+                .findByPersonIdAndTripId(personId, tripId)
+                .isPresent();
+        boolean isDriver = getTripDriverId(tripId).equals(personId);
+        return isPassenger || isDriver;
+    }
+
     private ReservationResponse createReservation(Trip trip, Person person) {
         if (trip.getAvailableSeats() <= 0) {
             throw new IllegalStateException("Ce trajet n'a plus de places disponibles");

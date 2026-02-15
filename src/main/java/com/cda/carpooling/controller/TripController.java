@@ -6,6 +6,7 @@ import com.cda.carpooling.dto.response.PersonMinimalResponse;
 import com.cda.carpooling.dto.response.ReservationResponse;
 import com.cda.carpooling.dto.response.TripResponse;
 import com.cda.carpooling.dto.response.TripMinimalResponse;
+import com.cda.carpooling.repository.ReservationRepository;
 import com.cda.carpooling.security.SecurityUtils;
 import com.cda.carpooling.service.TripService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,6 +28,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TripController {
 
+    private final ReservationRepository reservationRepository;
     private final TripService tripService;
     private final SecurityUtils securityUtils;
 
@@ -46,17 +48,28 @@ public class TripController {
      * Accessible à tous les utilisateurs authentifiés.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<TripResponse> getTripById(@PathVariable Long id) {
+    public ResponseEntity<TripMinimalResponse> getTripById(@PathVariable Long id) {
         return ResponseEntity.ok(tripService.getTripById(id));
     }
 
     /**
      * GET /trips/{id}/persons
-     * Retourne la liste des passagers d'un trajet (réservations non annulées).
+     * Retourne la liste des passagers d'un trajet.
      * Accessible à tous les utilisateurs authentifiés.
      */
     @GetMapping("/{id}/persons")
-    public ResponseEntity<List<PersonMinimalResponse>> getTripPassengers(@PathVariable Long id) {
+    public ResponseEntity<List<PersonMinimalResponse>> getTripPassengers(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        Long personId = securityUtils.extractUserId(jwt);
+        boolean isAdmin = securityUtils.isAdmin(jwt);
+        boolean isRelated = tripService.isPersonRelatedToTrip(personId, id);
+
+        if(!isAdmin && !isRelated)  {
+            throw new AccessDeniedException("Vous n'avez pas la permission d'accéder à cette ressource");
+        }
+
         return ResponseEntity.ok(tripService.getTripPassengers(id));
     }
 
@@ -108,8 +121,7 @@ public class TripController {
 
     /**
      * POST /trips/{id}/person
-     * Réserve une place sur un trajet OU annule la réservation existante (toggle).
-     * TODO : seul les personnes concernés par ce trajet devrait y avoir accès (et les admins)
+     * Réserve une place sur un trajet OU annule la réservation existante.
      */
     @PostMapping("/{id}/person")
     public ResponseEntity<ReservationResponse> toggleReservation(

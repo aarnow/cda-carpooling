@@ -45,7 +45,6 @@ public class PersonMapper {
                 .id(person.getId())
                 .email(person.getEmail())
                 .status(person.getStatus() != null ? person.getStatus().getLabel() : null)
-                .createdAt(person.getCreatedAt())
                 .build();
     }
 
