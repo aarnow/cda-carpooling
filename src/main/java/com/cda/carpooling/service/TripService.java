@@ -1,55 +1,46 @@
 package com.cda.carpooling.service;
 
-import com.cda.carpooling.dto.request.CreateAddressRequest;
 import com.cda.carpooling.dto.request.CreateTripRequest;
 import com.cda.carpooling.dto.request.UpdateTripRequest;
 import com.cda.carpooling.dto.response.PersonMinimalResponse;
 import com.cda.carpooling.dto.response.ReservationResponse;
-import com.cda.carpooling.dto.response.TripResponse;
 import com.cda.carpooling.dto.response.TripMinimalResponse;
+import com.cda.carpooling.dto.response.TripResponse;
 import com.cda.carpooling.entity.*;
 import com.cda.carpooling.exception.ResourceNotFoundException;
-import com.cda.carpooling.mapper.AddressMapper;
-import com.cda.carpooling.mapper.ReservationMapper;
 import com.cda.carpooling.mapper.TripMapper;
 import com.cda.carpooling.repository.*;
 import com.cda.carpooling.specification.TripSpecification;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class TripService {
 
     private final TripRepository tripRepository;
     private final PersonRepository personRepository;
     private final TripStatusRepository tripStatusRepository;
-    private final ReservationRepository reservationRepository;
-    private final ReservationStatusRepository reservationStatusRepository;
-    private final AddressMapper addressMapper;
-    private final TripMapper tripMapper;
-    private final ReservationMapper reservationMapper;
+    private final ReservationService reservationService;
     private final AddressService addressService;
+    private final TripMapper tripMapper;
 
     @Transactional(readOnly = true)
     public List<TripMinimalResponse> getAllTrips(
             LocalDate tripDate,
-            String startingCityId,
-            String arrivalCityId) {
+            String startingCity,
+            String arrivalCity) {
 
         Specification<Trip> spec = Specification
                 .where(TripSpecification.hasDate(tripDate))
-                .and(TripSpecification.hasDepartureCity(startingCityId))
-                .and(TripSpecification.hasArrivingCity(arrivalCityId));
+                .and(TripSpecification.hasDepartureCity(startingCity))
+                .and(TripSpecification.hasArrivingCity(arrivalCity));
 
         return tripRepository.findAll(spec)
                 .stream()
@@ -58,12 +49,12 @@ public class TripService {
     }
 
     @Transactional(readOnly = true)
-    public TripMinimalResponse getTripById(Long id) {
-        return tripMapper.toMinimalResponse(findTripOrThrow(id));
+    public TripResponse getTripById(Long id) {
+        return tripMapper.toResponse(findTripOrThrow(id));
     }
 
     /**
-     * Retourne la liste des passagers d'un trajet.
+     * Retourne la liste des passagers d'un trajet (réservations non annulées).
      */
     @Transactional(readOnly = true)
     public List<PersonMinimalResponse> getTripPassengers(Long tripId) {
@@ -80,6 +71,26 @@ public class TripService {
     }
 
     /**
+     * Retourne l'ID du conducteur d'un trajet.
+     * Utilisé par TripController pour vérifier les permissions.
+     */
+    @Transactional(readOnly = true)
+    public Long getTripDriverId(Long tripId) {
+        return findTripOrThrow(tripId).getDriver().getId();
+    }
+
+    /**
+     * Vérifie si une personne est en relation avec un trajet.
+     * Utilisé par TripController pour GET /trips/{id}/persons.
+     */
+    @Transactional(readOnly = true)
+    public boolean isPersonRelatedToTrip(Long personId, Long tripId) {
+        boolean isPassenger = reservationService.isPersonRelatedToTrip(personId, tripId);
+        boolean isDriver = getTripDriverId(tripId).equals(personId);
+        return isPassenger || isDriver;
+    }
+
+    /**
      * Crée un trajet. Réservé aux conducteurs (ROLE_DRIVER).
      */
     @Transactional
@@ -87,11 +98,11 @@ public class TripService {
         Person driver = findPersonOrThrow(driverId);
 
         TripStatus plannedStatus = tripStatusRepository.findByLabel(TripStatus.PLANNED)
-                .orElseThrow(() -> new ResourceNotFoundException("Statut", "label", TripStatus.PLANNED));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Statut", "label", TripStatus.PLANNED));
 
         Address departureAddress = addressService.findAddressOrThrow(request.getDepartureAddressId());
         Address arrivingAddress = addressService.findAddressOrThrow(request.getArrivingAddressId());
-
 
         Trip trip = Trip.builder()
                 .driver(driver)
@@ -109,9 +120,9 @@ public class TripService {
 
     /**
      * Met à jour un trajet. Réservé au conducteur propriétaire ou à un admin.
-     * TODO : la moindre modification doit alerter les réservations associées par email (de manière à ce que l'utilisateur consulte les changements)
-     * TODO : TripStatus CANCELLED doit entrainer l'annulation des réservations associées + déclencher l'envoi d'un email pour prevenir les personnes impactées
-     * TODO : L'utilisateur ne devrait pas pouvoir sélectionner TripStatus COMPLETED (automatique)
+     * TODO : la moindre modification doit alerter les passagers par email
+     * TODO : TripStatus CANCELLED doit annuler les réservations + envoyer des emails (endpoint dédié ?)
+     * TODO : TripStatus COMPLETED ne doit pas être sélectionnable manuellement
      */
     @Transactional
     public TripResponse updateTrip(Long id, UpdateTripRequest request) {
@@ -127,14 +138,17 @@ public class TripService {
             trip.setSmokingAllowed(request.getSmokingAllowed());
         }
         if (request.getDepartureAddressId() != null) {
-            trip.setDepartureAddress(addressService.findAddressOrThrow(request.getDepartureAddressId()));
+            trip.setDepartureAddress(
+                    addressService.findAddressOrThrow(request.getDepartureAddressId()));
         }
         if (request.getArrivingAddressId() != null) {
-            trip.setArrivingAddress(addressService.findAddressOrThrow(request.getArrivingAddressId()));
+            trip.setArrivingAddress(
+                    addressService.findAddressOrThrow(request.getArrivingAddressId()));
         }
         if (request.getTripStatusLabel() != null) {
             TripStatus status = tripStatusRepository.findByLabel(request.getTripStatusLabel())
-                    .orElseThrow(() -> new ResourceNotFoundException("Statut", "label", request.getTripStatusLabel()));
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Statut", "label", request.getTripStatusLabel()));
             trip.setTripStatus(status);
         }
 
@@ -143,98 +157,46 @@ public class TripService {
     }
 
     /**
-     * Supprime un trajet. Réservé au conducteur propriétaire ou à un admin.
-     * TODO : déclencher l'envoi d'un email pour prevenir les personnes impactées
+     * Supprime un trajet.
+     * Annule les réservations associées avant suppression.
+     * TODO : envoyer un email aux passagers impactés
      */
     @Transactional
     public void deleteTrip(Long id) {
         Trip trip = findTripOrThrow(id);
 
-        trip.getReservations().forEach(reservation -> {
-            log.info("ICI---- {}", reservation.getId());
-        });
+        // 1. Annuler toutes les réservations actives
+        reservationService.cancelTripReservations(trip);
 
+        // 2. Supprimer le trajet — plus de FK qui bloque
         tripRepository.delete(trip);
     }
+
     /**
-     * Réserve une place sur un trajet OU annule la réservation existante.
-     * - Si pas de réservation → crée une réservation CONFIRMED et décrémente availableSeats
-     * - Si réservation existante → annule et restitue la place
+     * Annule tous les trajets à venir d'un conducteur.
+     * Appelé par VehicleService lors de la suppression du véhicule du conducteur.
      */
     @Transactional
-    public ReservationResponse toggleReservation(Long tripId, Long personId) {
-        Trip trip = findTripOrThrow(tripId);
-        Person person = findPersonOrThrow(personId);
+    public void cancelDriverTrips(Long driverId) {
+        List<Trip> upcomingTrips = tripRepository
+                .findAllByDriverIdAndTripStatusLabel(driverId, TripStatus.PLANNED);
 
-        return reservationRepository
-                .findByPersonIdAndTripId(personId, tripId)
-                .map(existing -> cancelReservation(existing, trip))
-                .orElseGet(() -> createReservation(trip, person));
-    }
+        TripStatus cancelledStatus = tripStatusRepository.findByLabel(TripStatus.CANCELLED)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Statut", "label", TripStatus.CANCELLED));
 
-    /**
-     * Retourne l'ID du conducteur d'un trajet.
-     */
-    @Transactional(readOnly = true)
-    public Long getTripDriverId(Long tripId) {
-        return findTripOrThrow(tripId).getDriver().getId();
-    }
+        upcomingTrips.forEach(trip -> {
+            // 1. Annuler les réservations associées
+            reservationService.cancelTripReservations(trip);
 
-
-    // TODO : Peut être séparer via un ReservationService
-    //region Utils
-    @Transactional(readOnly = true)
-    public boolean isPersonRelatedToTrip(Long personId, Long tripId) {
-        boolean isPassenger = reservationRepository
-                .findByPersonIdAndTripId(personId, tripId)
-                .isPresent();
-        boolean isDriver = getTripDriverId(tripId).equals(personId);
-        return isPassenger || isDriver;
-    }
-
-    private ReservationResponse createReservation(Trip trip, Person person) {
-        if (trip.getAvailableSeats() <= 0) {
-            throw new IllegalStateException("Ce trajet n'a plus de places disponibles");
-        }
-
-        if (trip.getDriver().getId().equals(person.getId())) {
-            throw new AccessDeniedException("Un conducteur ne peut pas réserver son propre trajet");
-        }
-
-        ReservationStatus pendingStatus = reservationStatusRepository
-                .findByLabel(ReservationStatus.CONFIRMED)
-                .orElseThrow(() -> new ResourceNotFoundException("Statut", "label", ReservationStatus.CONFIRMED));
-
-        // Décrémente une place
-        trip.setAvailableSeats(trip.getAvailableSeats() - 1);
-        tripRepository.save(trip);
-
-        Reservation reservation = Reservation.builder()
-                .trip(trip)
-                .person(person)
-                .reservationStatus(pendingStatus)
-                .build();
-
-        Reservation saved = reservationRepository.save(reservation);
-        return reservationMapper.toResponse(saved);
-    }
-
-    private ReservationResponse cancelReservation(Reservation reservation, Trip trip) {
-        ReservationStatus cancelledStatus = reservationStatusRepository
-                .findByLabel(ReservationStatus.CANCELLED)
-                .orElseThrow(() -> new ResourceNotFoundException("Statut", "label", ReservationStatus.CANCELLED));
-
-        if (!reservation.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED)) {
-            trip.setAvailableSeats(trip.getAvailableSeats() + 1);
+            // 2. Annuler le trajet
+            trip.setTripStatus(cancelledStatus);
             tripRepository.save(trip);
-        }
-
-        reservation.setReservationStatus(cancelledStatus);
-        Reservation updated = reservationRepository.save(reservation);
-        return reservationMapper.toResponse(updated);
+        });
     }
 
-    private Trip findTripOrThrow(Long id) {
+    //region Utils
+    public Trip findTripOrThrow(Long id) {
         return tripRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Trajet", "id", id));
     }

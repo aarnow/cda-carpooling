@@ -8,6 +8,7 @@ import com.cda.carpooling.dto.response.TripResponse;
 import com.cda.carpooling.dto.response.TripMinimalResponse;
 import com.cda.carpooling.repository.ReservationRepository;
 import com.cda.carpooling.security.SecurityUtils;
+import com.cda.carpooling.service.ReservationService;
 import com.cda.carpooling.service.TripService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -31,6 +32,7 @@ import java.util.List;
 public class TripController {
 
     private final TripService tripService;
+    private final ReservationService reservationService;
     private final SecurityUtils securityUtils;
 
     /**
@@ -52,7 +54,7 @@ public class TripController {
      * Accessible à tous les utilisateurs authentifiés.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<TripMinimalResponse> getTripById(@PathVariable Long id) {
+    public ResponseEntity<TripResponse> getTripById(@PathVariable Long id) {
         return ResponseEntity.ok(tripService.getTripById(id));
     }
 
@@ -127,13 +129,13 @@ public class TripController {
      * POST /trips/{id}/person
      * Réserve une place sur un trajet OU annule la réservation existante.
      */
-    @PostMapping("/{id}/person")
+    @PostMapping("/{id}/persons")
     public ResponseEntity<ReservationResponse> toggleReservation(
             @PathVariable Long id,
             @AuthenticationPrincipal Jwt jwt) {
 
         Long personId = securityUtils.extractUserId(jwt);
-        return ResponseEntity.ok(tripService.toggleReservation(id, personId));
+        return ResponseEntity.ok(reservationService.toggleReservation(id, personId));
     }
 
     /**

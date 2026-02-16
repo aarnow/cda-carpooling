@@ -33,6 +33,7 @@ public class VehicleService {
     private final BrandRepository brandRepository;
     private final RoleRepository roleRepository;
     private final VehicleMapper vehicleMapper;
+    private final TripService tripService;
 
     /**
      * Récupère tous les véhicules.
@@ -125,27 +126,25 @@ public class VehicleService {
      * Supprime un véhicule.
      */
     @Transactional
-    public void deleteVehicle(Long vehicleId) {
-        Vehicle vehicle = findVehicleOrThrow(vehicleId);
-
+    public void deleteVehicle(Long id) {
+        Vehicle vehicle = findVehicleOrThrow(id);
         Person person = vehicle.getPerson();
-        if (person != null) {
-            person.setVehicle(null);
-            vehicle.setPerson(null);
 
-            Role driverRole = roleRepository.findByLabel(Role.ROLE_DRIVER)
-                    .orElseThrow(() -> new ResourceNotFoundException("Role", "label", Role.ROLE_DRIVER));
-            if (person.getRoles().contains(driverRole)) person.removeRole(driverRole);
+        // 1. Annuler les trajets à venir + leurs réservations
+        tripService.cancelDriverTrips(person.getId());
 
+        // 2. Retirer le rôle DRIVER
+        Role driverRole = roleRepository.findByLabel(Role.ROLE_DRIVER)
+                .orElseThrow(() -> new ResourceNotFoundException("Role", "label", Role.ROLE_DRIVER));
+
+        if (person.getRoles().contains(driverRole)) {
+            person.removeRole(driverRole);
             personRepository.save(person);
         }
 
-        //TODO : annuler les trips à venir de cette utilisateur
-
-        //TODO : annuler les réservations relative aux trips + prévenir par email
-
-
-
+        // 3. Dissocier et supprimer le véhicule
+        person.setVehicle(null);
+        vehicle.setPerson(null);
         vehicleRepository.delete(vehicle);
     }
 
