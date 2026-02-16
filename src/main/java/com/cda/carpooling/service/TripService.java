@@ -15,6 +15,7 @@ import com.cda.carpooling.mapper.TripMapper;
 import com.cda.carpooling.repository.*;
 import com.cda.carpooling.specification.TripSpecification;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TripService {
 
     private final TripRepository tripRepository;
@@ -79,7 +81,6 @@ public class TripService {
 
     /**
      * Crée un trajet. Réservé aux conducteurs (ROLE_DRIVER).
-     * Les adresses sont créées à la volée si elles n'existent pas encore.
      */
     @Transactional
     public TripResponse createTrip(Long driverId, CreateTripRequest request) {
@@ -88,21 +89,9 @@ public class TripService {
         TripStatus plannedStatus = tripStatusRepository.findByLabel(TripStatus.PLANNED)
                 .orElseThrow(() -> new ResourceNotFoundException("Statut", "label", TripStatus.PLANNED));
 
-        Address departureAddress = addressService.findOrCreate(
-                buildAddressRequest(request.getDepartureAddressId())
-        );
+        Address departureAddress = addressService.findAddressOrThrow(request.getDepartureAddressId());
+        Address arrivingAddress = addressService.findAddressOrThrow(request.getArrivingAddressId());
 
-        if (!departureAddress.isValidated()) {
-            throw new IllegalStateException("L'adresse de départ invalide");
-        }
-
-        Address arrivingAddress = addressService.findOrCreate(
-                buildAddressRequest(request.getArrivingAddressId())
-        );
-
-        if (!arrivingAddress.isValidated()) {
-            throw new IllegalStateException("L'adresse de d'arrivée invalide");
-        }
 
         Trip trip = Trip.builder()
                 .driver(driver)
@@ -120,8 +109,9 @@ public class TripService {
 
     /**
      * Met à jour un trajet. Réservé au conducteur propriétaire ou à un admin.
+     * TODO : la moindre modification doit alerter les réservations associées par email (de manière à ce que l'utilisateur consulte les changements)
      * TODO : TripStatus CANCELLED doit entrainer l'annulation des réservations associées + déclencher l'envoi d'un email pour prevenir les personnes impactées
-     * TODO : L'utilisateur ne devrait pas pouvoir sélectionner TripStatus IN_PROGRESS ou COMPLETED (automatique)
+     * TODO : L'utilisateur ne devrait pas pouvoir sélectionner TripStatus COMPLETED (automatique)
      */
     @Transactional
     public TripResponse updateTrip(Long id, UpdateTripRequest request) {
@@ -154,14 +144,18 @@ public class TripService {
 
     /**
      * Supprime un trajet. Réservé au conducteur propriétaire ou à un admin.
-     * TODO : doit supprimer les réservations associés + déclencher l'envoi d'un email pour prevenir les personnes impactées
+     * TODO : déclencher l'envoi d'un email pour prevenir les personnes impactées
      */
     @Transactional
     public void deleteTrip(Long id) {
         Trip trip = findTripOrThrow(id);
+
+        trip.getReservations().forEach(reservation -> {
+            log.info("ICI---- {}", reservation.getId());
+        });
+
         tripRepository.delete(trip);
     }
-
     /**
      * Réserve une place sur un trajet OU annule la réservation existante.
      * - Si pas de réservation → crée une réservation CONFIRMED et décrémente availableSeats
@@ -248,15 +242,6 @@ public class TripService {
     private Person findPersonOrThrow(Long id) {
         return personRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Personne", "id", id));
-    }
-
-    /**
-     * Construit un AddressRequest minimal depuis un ID existant.
-     * Utilisé pour le findOrCreate quand l'adresse est fournie par ID.
-     */
-    private CreateAddressRequest buildAddressRequest(Long addressId) {
-        Address existing = addressService.findAddressOrThrow(addressId);
-        return addressMapper.toRequest(existing);
     }
     //endregion
 }

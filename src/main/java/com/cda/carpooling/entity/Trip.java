@@ -62,7 +62,7 @@ public class Trip {
     @JoinColumn(name = "id_arriving_address", nullable = false)
     private Address arrivingAddress;
 
-    @OneToMany(mappedBy = "trip")
+    @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<Reservation> reservations = new HashSet<>();
 }

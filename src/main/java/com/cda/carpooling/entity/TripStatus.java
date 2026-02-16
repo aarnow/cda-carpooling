@@ -32,7 +32,6 @@ public class TripStatus {
 
     //constantes
     public static final String PLANNED = "PLANNED";
-    public static final String IN_PROGRESS = "IN_PROGRESS";
     public static final String COMPLETED = "COMPLETED";
     public static final String CANCELLED = "CANCELLED";
 }

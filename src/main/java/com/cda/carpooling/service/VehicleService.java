@@ -5,18 +5,21 @@ import com.cda.carpooling.dto.request.UpdateVehicleRequest;
 import com.cda.carpooling.dto.response.VehicleResponse;
 import com.cda.carpooling.entity.Brand;
 import com.cda.carpooling.entity.Person;
+import com.cda.carpooling.entity.Role;
 import com.cda.carpooling.entity.Vehicle;
 import com.cda.carpooling.exception.DuplicateResourceException;
 import com.cda.carpooling.exception.ResourceNotFoundException;
 import com.cda.carpooling.mapper.VehicleMapper;
 import com.cda.carpooling.repository.BrandRepository;
 import com.cda.carpooling.repository.PersonRepository;
+import com.cda.carpooling.repository.RoleRepository;
 import com.cda.carpooling.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Service de gestion des véhicules.
@@ -28,6 +31,7 @@ public class VehicleService {
     private final VehicleRepository vehicleRepository;
     private final PersonRepository personRepository;
     private final BrandRepository brandRepository;
+    private final RoleRepository roleRepository;
     private final VehicleMapper vehicleMapper;
 
     /**
@@ -52,7 +56,6 @@ public class VehicleService {
     /**
      * Crée un véhicule pour une personne.
      * Une personne ne peut posséder qu'un seul véhicule.
-     * TODO : La création d'un véhicule accorde le role DRIVER
      * @param targetPersonId ID de la personne cible
      * @param request        Données du véhicule
      */
@@ -76,6 +79,11 @@ public class VehicleService {
                 .description(request.getDescription())
                 .build();
 
+        Role driverRole = roleRepository.findByLabel(Role.ROLE_DRIVER)
+                .orElseThrow(() -> new ResourceNotFoundException("Role", "label", Role.ROLE_DRIVER));
+        if (!person.getRoles().contains(driverRole)) person.addRole(driverRole);
+
+        personRepository.save(person);
         Vehicle saved = vehicleRepository.save(vehicle);
 
         return vehicleMapper.toResponse(saved);
@@ -115,8 +123,6 @@ public class VehicleService {
 
     /**
      * Supprime un véhicule.
-     * TODO : La suppression du véhicule retire le role DRIVER de son propriétaire
-     * TODO : la suppression doit entrainer l'annulation des trips à venir avec ce conducteur
      */
     @Transactional
     public void deleteVehicle(Long vehicleId) {
@@ -126,7 +132,19 @@ public class VehicleService {
         if (person != null) {
             person.setVehicle(null);
             vehicle.setPerson(null);
+
+            Role driverRole = roleRepository.findByLabel(Role.ROLE_DRIVER)
+                    .orElseThrow(() -> new ResourceNotFoundException("Role", "label", Role.ROLE_DRIVER));
+            if (person.getRoles().contains(driverRole)) person.removeRole(driverRole);
+
+            personRepository.save(person);
         }
+
+        //TODO : annuler les trips à venir de cette utilisateur
+
+        //TODO : annuler les réservations relative aux trips + prévenir par email
+
+
 
         vehicleRepository.delete(vehicle);
     }

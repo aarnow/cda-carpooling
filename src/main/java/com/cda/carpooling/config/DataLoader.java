@@ -135,10 +135,6 @@ public class DataLoader {
                     .build());
 
             tripStatusRepository.save(TripStatus.builder()
-                    .label(TripStatus.IN_PROGRESS)
-                    .build());
-
-            tripStatusRepository.save(TripStatus.builder()
                     .label(TripStatus.COMPLETED)
                     .build());
 
