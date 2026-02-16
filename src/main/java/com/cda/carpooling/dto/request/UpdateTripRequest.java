@@ -28,6 +28,4 @@ public class UpdateTripRequest {
     private Long departureAddressId;
 
     private Long arrivingAddressId;
-
-    private String tripStatusLabel;
 }

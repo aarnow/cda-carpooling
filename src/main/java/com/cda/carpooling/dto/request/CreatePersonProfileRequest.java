@@ -34,7 +34,7 @@ public class CreatePersonProfileRequest {
     /**
      * ID de la personne (optionnel pour permettre aux admins de cibler un utilisateur).
      * Si absent, utilise l'utilisateur connecté.
-     * TODO : 🦥 Idéalement, il faudrait l'id de l'utilisateur dans un endpoint [POST - /persons/{id}/profiles]
+     * 🦥 Idéalement, il faudrait l'id de l'utilisateur dans un endpoint [POST - /persons/{id}/profiles]
      */
     private Long personId;
 }

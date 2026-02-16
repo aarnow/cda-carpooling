@@ -18,12 +18,12 @@ public interface TripRepository extends JpaRepository<Trip, Long>, JpaSpecificat
      */
     List<Trip> findAllByDriverId(Long driverId);
 
-    /**
-     * Retourne tous les trajets ayant encore des places disponibles
-     * et dont la date est dans le futur.
-     */
-    @Query("SELECT t FROM Trip t WHERE t.availableSeats > 0 AND t.tripDatetime > :now")
-    List<Trip> findAvailableTrips(@Param("now") LocalDateTime now);
+
+    // Trajets en tant que passager (via les réservations non annulées)
+    @Query("SELECT t FROM Trip t JOIN t.reservations r " +
+            "WHERE r.person.id = :personId")
+    List<Trip> findAllByPassengerId(
+            @Param("personId") Long personId);
 
     /**
      * Retourne tous les trajets d'un conducteur selon un statut donné.

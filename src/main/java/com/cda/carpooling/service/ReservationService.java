@@ -25,19 +25,29 @@ public class ReservationService {
     /**
      * Réserve une place sur un trajet OU annule la réservation existante (toggle).
      * Appelé par TripController sur POST /trips/{id}/persons
-     * TODO : L'utilisateur doit pouvoir passer de CANCELLED à CONFIRMED (s'il y a des places dispos)
      */
     @Transactional
     public ReservationResponse toggleReservation(Long tripId, Long personId) {
         Trip trip = findTripOrThrow(tripId);
 
-        //TODO : si le Trip est annulé, lever un exception
+        if (trip.getTripStatus().getLabel().equals(TripStatus.CANCELLED)) {
+            throw new IllegalStateException("Impossible de réserver sur un trajet annulé");
+        }
+        if (trip.getTripStatus().getLabel().equals(TripStatus.COMPLETED)) {
+            throw new IllegalStateException("Impossible de réserver sur un trajet terminé");
+        }
 
         Person person = findPersonOrThrow(personId);
 
         return reservationRepository
                 .findByPersonIdAndTripId(personId, tripId)
-                .map(existing -> cancelReservation(existing, trip))
+                .map(existing -> {
+                    if (existing.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED)) {
+                        return createReservation(trip, person);
+                    } else {
+                        return cancelReservation(existing, trip);
+                    }
+                })
                 .orElseGet(() -> createReservation(trip, person));
     }
 

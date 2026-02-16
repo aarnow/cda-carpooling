@@ -3,7 +3,6 @@ package com.cda.carpooling.service;
 import com.cda.carpooling.dto.request.CreateTripRequest;
 import com.cda.carpooling.dto.request.UpdateTripRequest;
 import com.cda.carpooling.dto.response.PersonMinimalResponse;
-import com.cda.carpooling.dto.response.ReservationResponse;
 import com.cda.carpooling.dto.response.TripMinimalResponse;
 import com.cda.carpooling.dto.response.TripResponse;
 import com.cda.carpooling.entity.*;
@@ -12,7 +11,6 @@ import com.cda.carpooling.mapper.TripMapper;
 import com.cda.carpooling.repository.*;
 import com.cda.carpooling.specification.TripSpecification;
 import lombok.RequiredArgsConstructor;
-import org.jspecify.annotations.Nullable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -145,12 +143,6 @@ public class TripService {
             trip.setArrivingAddress(
                     addressService.findAddressOrThrow(request.getArrivingAddressId()));
         }
-        if (request.getTripStatusLabel() != null) {
-            TripStatus status = tripStatusRepository.findByLabel(request.getTripStatusLabel())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Statut", "label", request.getTripStatusLabel()));
-            trip.setTripStatus(status);
-        }
 
         Trip updated = tripRepository.save(trip);
         return tripMapper.toResponse(updated);
@@ -164,11 +156,7 @@ public class TripService {
     @Transactional
     public void deleteTrip(Long id) {
         Trip trip = findTripOrThrow(id);
-
-        // 1. Annuler toutes les réservations actives
         reservationService.cancelTripReservations(trip);
-
-        // 2. Supprimer le trajet — plus de FK qui bloque
         tripRepository.delete(trip);
     }
 
@@ -193,6 +181,28 @@ public class TripService {
             trip.setTripStatus(cancelledStatus);
             tripRepository.save(trip);
         });
+    }
+
+    /**
+     * Retourne tous les trajets d'une personne en tant que conducteur.
+     */
+    @Transactional(readOnly = true)
+    public List<TripMinimalResponse> getTripsByDriver(Long driverId) {
+        return tripRepository.findAllByDriverId(driverId)
+                .stream()
+                .map(tripMapper::toMinimalResponse)
+                .toList();
+    }
+
+    /**
+     * Retourne tous les trajets d'une personne en tant que passager
+     */
+    @Transactional(readOnly = true)
+    public List<TripMinimalResponse> getTripsByPassenger(Long personId) {
+        return tripRepository.findAllByPassengerId(personId)
+                .stream()
+                .map(tripMapper::toMinimalResponse)
+                .toList();
     }
 
     //region Utils

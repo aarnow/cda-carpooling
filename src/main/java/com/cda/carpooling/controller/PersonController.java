@@ -5,8 +5,10 @@ import com.cda.carpooling.dto.request.UpdatePersonProfileRequest;
 import com.cda.carpooling.dto.response.PersonMinimalResponse;
 import com.cda.carpooling.dto.response.PersonProfileResponse;
 import com.cda.carpooling.dto.response.PersonResponse;
+import com.cda.carpooling.dto.response.TripMinimalResponse;
 import com.cda.carpooling.security.SecurityUtils;
 import com.cda.carpooling.service.PersonService;
+import com.cda.carpooling.service.TripService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,10 +33,11 @@ import java.util.List;
 public class PersonController {
 
     private final PersonService personService;
+    private final TripService tripService;
     private final SecurityUtils securityUtils;
 
     /**
-     * GET /api/persons
+     * GET /persons
      * Récupère toutes les personnes.
      *
      * Query parameters :
@@ -58,7 +61,7 @@ public class PersonController {
     }
 
     /**
-     * GET /api/persons/{id}
+     * GET /persons/{id}
      * Récupère une personne par son ID.
      *
      * @param id L'ID de la personne
@@ -107,8 +110,8 @@ public class PersonController {
     }
 
     /**
-     * TODO : 🦥 Si nous voulons vraiment respecter les standards REST, faudrait utiliser la méthode DELETE
-     * PATCH /api/persons/{id}/soft-delete
+     * 🦥 Si nous voulons vraiment respecter les standards REST, faudrait utiliser la méthode DELETE
+     * PATCH /persons/{id}/soft-delete
      * Anonymise une personne (soft delete).
      *
      * @param id L'ID de la personne
@@ -141,7 +144,7 @@ public class PersonController {
     }
 
     /**
-     * POST /api/persons/{personId}/roles/{roleLabel}
+     * POST /persons/{personId}/roles/{roleLabel}
      * Assigne un rôle à une personne.
      *
      * @param personId L'ID de la personne
@@ -158,7 +161,7 @@ public class PersonController {
     }
 
     /**
-     * DELETE /api/persons/{personId}/roles/{roleLabel}
+     * DELETE /persons/{personId}/roles/{roleLabel}
      * Retire un rôle d'une personne.
      *
      * @param personId L'ID de la personne
@@ -172,5 +175,41 @@ public class PersonController {
             @PathVariable String roleLabel) {
         PersonResponse person = personService.removeRole(personId, roleLabel);
         return ResponseEntity.ok(person);
+    }
+
+    /**
+     * GET /persons/{id}/trips-driver
+     * Retourne les trajets d'une personne en tant que conducteur.
+     * Réservé au propriétaire ou à un admin.
+     */
+    @GetMapping("/{id}/trips-driver")
+    public ResponseEntity<List<TripMinimalResponse>> getTripsByDriver(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        if (!securityUtils.isOwnerOrAdmin(id, jwt)) {
+            throw new AccessDeniedException(
+                    "Vous n'avez pas accès aux trajets de cet utilisateur");
+        }
+
+        return ResponseEntity.ok(tripService.getTripsByDriver(id));
+    }
+
+    /**
+     * GET /persons/{id}/trips-passenger
+     * Retourne les trajets d'une personne en tant que passager.
+     * Réservé au propriétaire ou à un admin.
+     */
+    @GetMapping("/{id}/trips-passenger")
+    public ResponseEntity<List<TripMinimalResponse>> getTripsByPassenger(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        if (!securityUtils.isOwnerOrAdmin(id, jwt)) {
+            throw new AccessDeniedException(
+                    "Vous n'avez pas accès aux trajets de cet utilisateur");
+        }
+
+        return ResponseEntity.ok(tripService.getTripsByPassenger(id));
     }
 }
