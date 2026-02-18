@@ -36,6 +36,23 @@ services:
       - app-network
     restart: on-failure
 
+  zap:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    container_name: zap
+    depends_on:
+      - app
+    networks:
+      - app-network
+    volumes:
+      - ./zap-reports:/zap/wrk
+    command: >
+      zap-api-scan.py
+      -t http://app:8080/v3/api-docs
+      -f openapi
+      -r zap-report.html
+      -J zap-report.json
+      -l WARN
+
 volumes:
   postgres-data:
 
