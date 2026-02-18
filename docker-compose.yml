@@ -53,8 +53,23 @@ services:
       -J zap-report.json
       -l WARN
 
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonar-data:/opt/sonarqube/data
+      - sonar-logs:/opt/sonarqube/logs
+    networks:
+      - app-network
+
 volumes:
   postgres-data:
+  sonar-data:
+  sonar-logs:
 
 networks:
   app-network:
