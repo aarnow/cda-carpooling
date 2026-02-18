@@ -38,3 +38,4 @@ ___
 - indiquer l'emplacement des diagrammes
 - parler de la couverture de tests avec Jacoco
 - parler de CI/CD avec Render
+- partager l'url swagger (/swagger-ui.html)
