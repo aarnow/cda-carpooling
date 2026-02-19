@@ -22,6 +22,8 @@ public class TripResponse {
     private int availableSeats;
     private boolean smokingAllowed;
     private String tripStatus;
+    private Double distanceKm;
+    private Integer durationMinutes;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

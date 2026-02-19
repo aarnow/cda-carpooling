@@ -22,6 +22,8 @@ public class TripMinimalResponse {
     private int availableSeats;
     private boolean smokingAllowed;
     private String tripStatus;
+    private Double distanceKm;
+    private Integer durationMinutes;
 
     // Adresses
     private CityResponse departureCityName;

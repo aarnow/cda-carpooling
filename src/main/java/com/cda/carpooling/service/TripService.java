@@ -31,6 +31,7 @@ public class TripService {
     private final PersonRepository personRepository;
     private final TripStatusRepository tripStatusRepository;
     private final ReservationService reservationService;
+    private final DistanceService distanceService;
     private final AddressService addressService;
     private final TripMapper tripMapper;
 
@@ -120,6 +121,14 @@ public class TripService {
         Address departureAddress = addressService.findAddressOrThrow(request.getDepartureAddressId());
         Address arrivingAddress = addressService.findAddressOrThrow(request.getArrivingAddressId());
 
+
+        DistanceService.DistanceResult distance = distanceService.calculateDistance(
+                departureAddress.getLatitude(),
+                departureAddress.getLongitude(),
+                arrivingAddress.getLatitude(),
+                arrivingAddress.getLongitude()
+        );
+
         Trip trip = Trip.builder()
                 .driver(driver)
                 .tripDatetime(request.getTripDatetime())
@@ -128,6 +137,8 @@ public class TripService {
                 .tripStatus(plannedStatus)
                 .departureAddress(departureAddress)
                 .arrivingAddress(arrivingAddress)
+                .distanceKm(distance != null ? distance.distanceKm() : null)
+                .durationMinutes(distance != null ? distance.durationMinutes() : null)
                 .build();
 
         Trip saved = tripRepository.save(trip);
@@ -149,6 +160,7 @@ public class TripService {
     @Transactional
     public TripResponse updateTrip(Long id, UpdateTripRequest request) {
         Trip trip = findTripOrThrow(id);
+        boolean addressesChanged = false;
 
         if (request.getTripDatetime() != null) {
             trip.setTripDatetime(request.getTripDatetime());
@@ -160,16 +172,33 @@ public class TripService {
             trip.setSmokingAllowed(request.getSmokingAllowed());
         }
         if (request.getDepartureAddressId() != null) {
-            trip.setDepartureAddress(
-                    addressService.findAddressOrThrow(request.getDepartureAddressId()));
+            trip.setDepartureAddress(addressService.findAddressOrThrow(request.getDepartureAddressId()));
+            addressesChanged = true;
         }
         if (request.getArrivingAddressId() != null) {
-            trip.setArrivingAddress(
-                    addressService.findAddressOrThrow(request.getArrivingAddressId()));
+            trip.setArrivingAddress(addressService.findAddressOrThrow(request.getArrivingAddressId()));
+            addressesChanged = true;
+        }
+
+        if (addressesChanged) {
+            DistanceService.DistanceResult distance = distanceService.calculateDistance(
+                    trip.getDepartureAddress().getLatitude(),
+                    trip.getDepartureAddress().getLongitude(),
+                    trip.getArrivingAddress().getLatitude(),
+                    trip.getArrivingAddress().getLongitude()
+            );
+
+            if (distance != null) {
+                trip.setDistanceKm(distance.distanceKm());
+                trip.setDurationMinutes(distance.durationMinutes());
+                log.debug("Distance recalculée : {} km ({} min)",
+                        distance.distanceKm(), distance.durationMinutes());
+            } else log.warn("Impossible de recalculer la distance pour tripId={}", id);
         }
 
         Trip updated = tripRepository.save(trip);
-        log.info("Trajet mis à jour : id={}", id);
+        log.info("✅ Trajet mis à jour : id={}{}", id,
+                addressesChanged ? " (distance recalculée)" : "");
 
         return tripMapper.toResponse(updated);
     }
