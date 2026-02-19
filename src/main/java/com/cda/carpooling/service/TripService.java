@@ -11,6 +11,7 @@ import com.cda.carpooling.mapper.TripMapper;
 import com.cda.carpooling.repository.*;
 import com.cda.carpooling.specification.TripSpecification;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,8 +19,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * Service de gestion des trajets.
+ */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TripService {
 
     private final TripRepository tripRepository;
@@ -29,21 +34,35 @@ public class TripService {
     private final AddressService addressService;
     private final TripMapper tripMapper;
 
+    /**
+     * Recherche des trajets avec filtres optionnels.
+     *
+     * @param tripDate Date du trajet (filtre par jour)
+     * @param startingCity Nom de la ville de départ
+     * @param arrivalCity Nom de la ville d'arrivée
+     * @return Liste de TripMinimalResponse
+     */
     @Transactional(readOnly = true)
     public List<TripMinimalResponse> getAllTrips(
             LocalDate tripDate,
             String startingCity,
             String arrivalCity) {
 
+        log.debug("Recherche trajets : date={}, départ={}, arrivée={}",
+                tripDate, startingCity, arrivalCity);
+
         Specification<Trip> spec = Specification
                 .where(TripSpecification.hasDate(tripDate))
                 .and(TripSpecification.hasDepartureCity(startingCity))
                 .and(TripSpecification.hasArrivingCity(arrivalCity));
 
-        return tripRepository.findAll(spec)
+        List<TripMinimalResponse> results = tripRepository.findAll(spec)
                 .stream()
                 .map(tripMapper::toMinimalResponse)
                 .toList();
+
+        log.debug("{} trajets trouvés", results.size());
+        return results;
     }
 
     @Transactional(readOnly = true)
@@ -70,7 +89,6 @@ public class TripService {
 
     /**
      * Retourne l'ID du conducteur d'un trajet.
-     * Utilisé par TripController pour vérifier les permissions.
      */
     @Transactional(readOnly = true)
     public Long getTripDriverId(Long tripId) {
@@ -79,7 +97,6 @@ public class TripService {
 
     /**
      * Vérifie si une personne est en relation avec un trajet.
-     * Utilisé par TripController pour GET /trips/{id}/persons.
      */
     @Transactional(readOnly = true)
     public boolean isPersonRelatedToTrip(Long personId, Long tripId) {
@@ -90,6 +107,7 @@ public class TripService {
 
     /**
      * Crée un trajet. Réservé aux conducteurs (ROLE_DRIVER).
+     * Les adresses doivent exister en BDD (issues de la recherche BAN).
      */
     @Transactional
     public TripResponse createTrip(Long driverId, CreateTripRequest request) {
@@ -113,6 +131,13 @@ public class TripService {
                 .build();
 
         Trip saved = tripRepository.save(trip);
+        log.info("✅ Trajet créé : {} → {} par conducteur {} (tripId={}, {} places)",
+                departureAddress.getCity().getName(),
+                arrivingAddress.getCity().getName(),
+                driverId,
+                saved.getId(),
+                saved.getAvailableSeats());
+
         return tripMapper.toResponse(saved);
     }
 
@@ -120,7 +145,6 @@ public class TripService {
      * Met à jour un trajet. Réservé au conducteur propriétaire ou à un admin.
      * TODO : la moindre modification doit alerter les passagers par email
      * TODO : TripStatus CANCELLED doit annuler les réservations + envoyer des emails (endpoint dédié ?)
-     * TODO : TripStatus COMPLETED ne doit pas être sélectionnable manuellement
      */
     @Transactional
     public TripResponse updateTrip(Long id, UpdateTripRequest request) {
@@ -145,6 +169,8 @@ public class TripService {
         }
 
         Trip updated = tripRepository.save(trip);
+        log.info("Trajet mis à jour : id={}", id);
+
         return tripMapper.toResponse(updated);
     }
 
@@ -156,31 +182,40 @@ public class TripService {
     @Transactional
     public void deleteTrip(Long id) {
         Trip trip = findTripOrThrow(id);
+
         reservationService.cancelTripReservations(trip);
         tripRepository.delete(trip);
+
+        log.warn("🗑Trajet {} supprimé", id);
     }
 
     /**
      * Annule tous les trajets à venir d'un conducteur.
-     * Appelé par VehicleService lors de la suppression du véhicule du conducteur.
+     * @param driverId ID du conducteur
      */
     @Transactional
     public void cancelDriverTrips(Long driverId) {
         List<Trip> upcomingTrips = tripRepository
                 .findAllByDriverIdAndTripStatusLabel(driverId, TripStatus.PLANNED);
 
+        if (upcomingTrips.isEmpty()) {
+            log.debug("Aucun trajet à venir pour conducteur {}", driverId);
+            return;
+        }
+
         TripStatus cancelledStatus = tripStatusRepository.findByLabel(TripStatus.CANCELLED)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Statut", "label", TripStatus.CANCELLED));
 
         upcomingTrips.forEach(trip -> {
-            // 1. Annuler les réservations associées
             reservationService.cancelTripReservations(trip);
-
-            // 2. Annuler le trajet
             trip.setTripStatus(cancelledStatus);
             tripRepository.save(trip);
+            log.info("Trajet {} annulé", trip.getId());
         });
+
+        log.info("{} trajets annulés (conducteur {} sans véhicule)",
+                upcomingTrips.size(), driverId);
     }
 
     /**

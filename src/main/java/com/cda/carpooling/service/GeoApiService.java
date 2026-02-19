@@ -5,6 +5,7 @@ import com.cda.carpooling.dto.response.CityResponse;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -18,6 +19,7 @@ import java.util.List;
  * - api-adresse.data.gouv.fr (recherche et validation d'adresses)
  */
 @Service
+@Slf4j
 public class GeoApiService {
 
     private static final String GEO_API_BASE_URL = "https://geo.api.gouv.fr";
@@ -33,16 +35,20 @@ public class GeoApiService {
         this.banClient = RestClient.builder()
                 .baseUrl(BAN_API_BASE_URL)
                 .build();
+
+        log.info("GeoApiService initialisé (geo.api.gouv.fr + BAN)");
     }
 
     /**
-     * Recherche des communes françaises par nom.
+     * Recherche des communes françaises par nom via geo.api.gouv.fr.
      *
      * @param name Nom ou début de nom de la commune
      * @return Liste de CityResponse
      */
     public List<CityResponse> searchCities(String name) {
         try {
+            log.debug("Appel API geo.api.gouv.fr : communes?nom={}", name);
+
             GeoCommune[] communes = geoClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/communes")
@@ -53,29 +59,38 @@ public class GeoApiService {
                     .retrieve()
                     .body(GeoCommune[].class);
 
-            if (communes == null) return List.of();
+            if (communes == null) {
+                log.warn("API geo.api.gouv.fr retourne null");
+                return List.of();
+            };
 
-            return Arrays.stream(communes)
+            List<CityResponse> results = Arrays.stream(communes)
                     .filter(c -> c.getCodesPostaux() != null && !c.getCodesPostaux().isEmpty())
                     .map(c -> CityResponse.builder()
                             .name(c.getNom())
-                            .postalCode(c.getCodesPostaux().get(0))
+                            .postalCode(c.getCodesPostaux().getFirst())
                             .build())
                     .toList();
 
+            log.debug("geo.api.gouv.fr retourne {} communes", results.size());
+            return results;
+
         } catch (RestClientException e) {
+            log.warn("Erreur API geo.api.gouv.fr : {}", e.getMessage());
             return List.of();
         }
     }
 
     /**
-     * Recherche des adresses dans une ville spécifique.
+     * Recherche des adresses dans une ville spécifique via la BAN.
      *
      * @param query Chaîne libre (ex: "5 rue de Pr")
      * @param cityName Nom de la ville pour affiner (ex: "Séné")
      */
     public List<AddressResponse> searchAddresses(String query, String cityName) {
         try {
+            log.debug("Appel API BAN : /search?q={}&city={}", query, cityName);
+
             BanResponse response = banClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/search/")
@@ -87,18 +102,29 @@ public class GeoApiService {
                     .retrieve()
                     .body(BanResponse.class);
 
-            if (response == null || response.getFeatures() == null) return List.of();
+            if (response == null || response.getFeatures() == null) {
+                log.warn("API BAN retourne null ou vide");
+                return List.of();
+            }
 
-            return response.getFeatures().stream()
+            List<AddressResponse> results = response.getFeatures().stream()
                     .map(this::toAddressResponse)
                     .toList();
 
+            log.debug("BAN retourne {} adresses", results.size());
+            return results;
+
         } catch (RestClientException e) {
+            log.warn("Erreur API BAN : {}", e.getMessage());
             return List.of();
         }
     }
 
     //region Mapper
+    /**
+     * Convertit une Feature GeoJSON BAN en AddressResponse.
+     * Extrait les coordonnées GPS au format [longitude, latitude].
+     */
     private AddressResponse toAddressResponse(BanFeature feature) {
         BanProperties props = feature.getProperties();
         BanGeometry geometry = feature.getGeometry();

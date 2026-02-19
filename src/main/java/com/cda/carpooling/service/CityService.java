@@ -9,6 +9,7 @@ import com.cda.carpooling.exception.ResourceNotFoundException;
 import com.cda.carpooling.mapper.CityMapper;
 import com.cda.carpooling.repository.CityRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CityService {
 
     private final CityRepository cityRepository;
@@ -23,7 +25,7 @@ public class CityService {
     private final GeoApiService geoApiService;
 
     /**
-     * Retourne toutes les villes en cache (BDD locale).
+     * Retourne toutes les villes.
      */
     @Transactional(readOnly = true)
     public List<CityResponse> getAllCities() {
@@ -52,11 +54,15 @@ public class CityService {
      */
     @Transactional
     public List<CityResponse> searchCities(String name) {
-        List<City> cached = cityRepository.findAllByNameContainingIgnoreCase(name);
-        if (!cached.isEmpty()) {
-            return cached.stream().map(cityMapper::toResponse).toList();
+        log.debug("Recherche ville : '{}'", name);
+        List<City> cities = cityRepository.findAllByNameContainingIgnoreCase(name);
+
+        if (!cities.isEmpty()) {
+            log.debug("{} villes trouvées en bdd", cities.size());
+            return cities.stream().map(cityMapper::toResponse).toList();
         }
 
+        log.debug("Cache vide — appel API geo.api.gouv.fr");
         List<CityResponse> apiResults = geoApiService.searchCities(name);
 
         apiResults.forEach(cityResponse -> {
@@ -66,9 +72,11 @@ public class CityService {
                         .postalCode(cityResponse.getPostalCode())
                         .build();
                 cityRepository.save(city);
+                log.info("Ville sauvegardée en BDD : {}", city.getName());
             }
         });
 
+        log.debug("{} villes retournées par l'API", apiResults.size());
         return apiResults;
     }
 
@@ -78,6 +86,7 @@ public class CityService {
     @Transactional
     public CityResponse createCity(CreateCityRequest request) {
         if (cityRepository.existsByName(request.getName())) {
+            log.warn("Tentative de création d'une ville existante : '{}'", request.getName());
             throw new DuplicateResourceException(
                     "Une ville avec le nom '" + request.getName() + "' existe déjà"
             );
@@ -89,6 +98,8 @@ public class CityService {
                 .build();
 
         City saved = cityRepository.save(city);
+        log.info("Ville créée : {} ({})", saved.getName(), saved.getPostalCode());
+
         return cityMapper.toResponse(saved);
     }
 
@@ -101,6 +112,7 @@ public class CityService {
 
         if (!city.getName().equals(request.getName())
                 && cityRepository.existsByName(request.getName())) {
+            log.warn("Tentative de renommage vers un nom existant : '{}'", request.getName());
             throw new DuplicateResourceException(
                     "Une ville avec le nom '" + request.getName() + "' existe déjà"
             );
@@ -115,6 +127,8 @@ public class CityService {
         }
 
         City updated = cityRepository.save(city);
+        log.info("Ville mise à jour : {} (id={})", updated.getName(), id);
+
         return cityMapper.toResponse(updated);
     }
 
@@ -125,6 +139,7 @@ public class CityService {
     public void deleteCity(Long id) {
         City city = findCityOrThrow(id);
         cityRepository.delete(city);
+        log.info("Ville supprimée : {} (id={})", city.getName(), id);
     }
 
     //region Utils

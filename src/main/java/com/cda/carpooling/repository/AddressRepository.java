@@ -18,5 +18,8 @@ public interface AddressRepository extends JpaRepository<Address, Long> {
     /**
      * Retourne l'adresse selon son numéro, son nom et sa ville
      */
-    Optional<Address> findByStreetNameAndStreetNumberAndCityId(String streetName, String streetNumber, Long cityId);
+    Optional<Address> findByStreetNameAndStreetNumberAndCityId(
+            String streetName,
+            String streetNumber,
+            Long cityId);
 }

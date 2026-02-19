@@ -10,6 +10,7 @@ import com.cda.carpooling.exception.ResourceNotFoundException;
 import com.cda.carpooling.repository.PersonRepository;
 import com.cda.carpooling.service.PersonService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -22,6 +23,7 @@ import java.time.LocalDateTime;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final PersonRepository personRepository;
@@ -30,28 +32,43 @@ public class AuthService {
     private final BCryptPasswordEncoder passwordEncoder;
 
     /**
-     * Connexion d'un utilisateur.
+     * Authentifie un utilisateur et génère un token JWT.
+     *
+     * @param request Email et mot de passe de l'utilisateur
+     * @return Token JWT avec informations utilisateur
+     * @throws ResourceNotFoundException Si l'email n'existe pas
+     * @throws BadCredentialsException Si le mot de passe est incorrect
+     * @throws DisabledException Si le compte n'est pas actif
      */
     public AuthResponse login(AuthRequest request) {
+        log.debug("Tentative de connexion pour : {}", request.getEmail());
+
         Person person = personRepository.findByEmailWithProfileAndRoles(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("Personne", "email", request.getEmail()));
+                .orElseThrow(() -> {
+                    log.warn("Connexion échouée : email '{}' inconnu", request.getEmail());
+                    return new ResourceNotFoundException("Personne", "email", request.getEmail());
+                });
 
         if (!passwordEncoder.matches(request.getPassword(), person.getPassword())) {
+            log.warn("Connexion échouée : mot de passe incorrect pour '{}'", request.getEmail());
             throw new BadCredentialsException("Email ou mot de passe incorrect");
         }
 
-        if(!person.getStatus().getLabel().equals(PersonStatus.ACTIVE)){
-           throw new DisabledException("Ce compte n'est pas accessible");
+        if (!person.getStatus().getLabel().equals(PersonStatus.ACTIVE)) {
+            log.warn("Connexion bloquée : compte '{}' non actif (statut: {})",
+                    request.getEmail(), person.getStatus().getLabel());
+            throw new DisabledException("Ce compte n'est pas accessible");
         }
 
         String token = jwtService.generateToken(person);
-
         String[] roles = person.getRoles().stream()
                 .map(Role::getLabel)
                 .toArray(String[]::new);
 
         person.setLastLogin(LocalDateTime.now());
         personRepository.save(person);
+
+        log.info("Connexion réussie : {} (roles: {})", request.getEmail(), String.join(", ", roles));
 
         return AuthResponse.builder()
                 .token(token)
@@ -62,11 +79,15 @@ public class AuthService {
     }
 
     /**
-     * Inscription d'un nouvel utilisateur.
+     * Inscrit un nouvel utilisateur et le connecte automatiquement.
+     *
+     * @param request Données d'inscription
+     * @return Token JWT avec informations utilisateur
      */
     public AuthResponse register(CreatePersonRequest request) {
+        log.info("Inscription d'un nouvel utilisateur : {}", request.getEmail());
         personService.createPerson(request);
-
+        log.debug("Connexion automatique après inscription : {}", request.getEmail());
         return login(new AuthRequest(request.getEmail(), request.getPassword()));
     }
 }

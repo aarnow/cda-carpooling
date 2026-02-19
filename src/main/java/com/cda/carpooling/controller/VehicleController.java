@@ -8,6 +8,7 @@ import com.cda.carpooling.service.VehicleService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -24,6 +25,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/vehicles")
 @RequiredArgsConstructor
+@Slf4j
 public class VehicleController {
 
     private final VehicleService vehicleService;
@@ -66,6 +68,8 @@ public class VehicleController {
             @AuthenticationPrincipal Jwt jwt) {
 
         Long targetPersonId = securityUtils.resolveTargetPersonId(request.getPersonId(), jwt);
+        log.info("Création véhicule pour personne {}", targetPersonId);
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(vehicleService.createVehicle(targetPersonId, request));
     }
@@ -85,6 +89,7 @@ public class VehicleController {
             @Valid @RequestBody UpdateVehicleRequest request,
             @AuthenticationPrincipal Jwt jwt) {
 
+        log.info("Modification véhicule {} par {}", id, securityUtils.extractUserId(jwt));
         checkOwnerOrAdmin(id, jwt);
         return ResponseEntity.ok(vehicleService.updateVehicle(id, request));
     }
@@ -102,6 +107,7 @@ public class VehicleController {
             @PathVariable Long id,
             @AuthenticationPrincipal Jwt jwt) {
 
+        log.warn("Suppression véhicule {} par {}", id, securityUtils.extractUserId(jwt));
         checkOwnerOrAdmin(id, jwt);
         vehicleService.deleteVehicle(id);
         return ResponseEntity.noContent().build();

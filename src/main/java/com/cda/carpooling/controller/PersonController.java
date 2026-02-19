@@ -12,6 +12,7 @@ import com.cda.carpooling.service.TripService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +31,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/persons")
 @RequiredArgsConstructor
+@Slf4j
 public class PersonController {
 
     private final PersonService personService;
@@ -50,6 +52,7 @@ public class PersonController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getAllPersons(
             @RequestParam(required = false, defaultValue = "false") Boolean minimal) {
+        log.debug("GET /persons (minimal={})", minimal);
 
         if (minimal != null && minimal) {
             List<PersonMinimalResponse> persons = personService.getAllPersonsMinimal();
@@ -70,110 +73,6 @@ public class PersonController {
     @GetMapping("/{id}")
     public ResponseEntity<@NonNull PersonResponse> getPersonById(@PathVariable Long id) {
         PersonResponse person = personService.getPersonById(id);
-        return ResponseEntity.ok(person);
-    }
-
-    /**
-     * POST /persons
-     * Crée un profil pour l'utilisateur connecté.
-     * Un admin peut créer le profil d'un autre utilisateur.
-     */
-    @PostMapping
-    public ResponseEntity<PersonProfileResponse> createPersonProfile(
-            @Valid @RequestBody CreatePersonProfileRequest request,
-            @AuthenticationPrincipal Jwt jwt) {
-
-        Long targetPersonId = securityUtils.resolveTargetPersonId(
-                request.getPersonId(),
-                jwt
-        );
-
-        PersonProfileResponse profile = personService.createPersonProfile(targetPersonId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(profile);
-    }
-
-    /**
-     * PATCH /persons/{id}
-     * Modifie son propre profil ou celui d'un autre si admin.
-     */
-    @PatchMapping("/{id}")
-    public ResponseEntity<PersonProfileResponse> updatePerson(
-            @PathVariable Long id,
-            @Valid @RequestBody UpdatePersonProfileRequest request,
-            @AuthenticationPrincipal Jwt jwt) {
-
-        if (!securityUtils.isOwnerOrAdmin(id, jwt)) {
-            throw new AccessDeniedException("Vous n'avez pas la permission de modifier ce profil");
-        }
-
-        return ResponseEntity.ok(personService.updatePersonProfile(id, request));
-    }
-
-    /**
-     * 🦥 Si nous voulons vraiment respecter les standards REST, faudrait utiliser la méthode DELETE
-     * PATCH /persons/{id}/soft-delete
-     * Anonymise une personne (soft delete).
-     *
-     * @param id L'ID de la personne
-     * @return 204 NO CONTENT
-     */
-    @PatchMapping("/{id}/soft-delete")
-    public ResponseEntity<PersonResponse> softDeletePerson(
-            @PathVariable Long id,
-            @AuthenticationPrincipal Jwt jwt
-    ) {
-        if (!securityUtils.isOwnerOrAdmin(id, jwt)) {
-            throw new AccessDeniedException("Vous n'avez pas la permission");
-        }
-
-        return ResponseEntity.ok(personService.softDeletePerson(id));
-    }
-
-    /**
-     * DELETE /persons/{id}
-     * Supprime définitivement une personne.
-     *
-     * @param id L'ID de la personne
-     * @return 204 NO CONTENT
-     */
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<@NonNull Void> deletePerson(@PathVariable Long id) {
-        personService.deletePerson(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * POST /persons/{personId}/roles/{roleLabel}
-     * Assigne un rôle à une personne.
-     *
-     * @param personId L'ID de la personne
-     * @param roleLabel Le label du rôle
-     * @return 200 OK avec la personne mise à jour
-     */
-    @PostMapping("/{personId}/roles/{roleLabel}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<@NonNull PersonResponse> assignRole(
-            @PathVariable Long personId,
-            @PathVariable String roleLabel) {
-        PersonResponse person = personService.assignRole(personId, roleLabel);
-        return ResponseEntity.ok(person);
-    }
-
-    /**
-     * DELETE /persons/{personId}/roles/{roleLabel}
-     * Retire un rôle d'une personne.
-     *
-     * @param personId L'ID de la personne
-     * @param roleLabel Le label du rôle
-     * @return 200 OK avec la personne mise à jour
-     */
-    @DeleteMapping("/{personId}/roles/{roleLabel}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<@NonNull PersonResponse> removeRole(
-            @PathVariable Long personId,
-            @PathVariable String roleLabel) {
-        PersonResponse person = personService.removeRole(personId, roleLabel);
         return ResponseEntity.ok(person);
     }
 
@@ -211,5 +110,115 @@ public class PersonController {
         }
 
         return ResponseEntity.ok(tripService.getTripsByPassenger(id));
+    }
+
+    /**
+     * POST /persons
+     * Crée un profil pour l'utilisateur connecté.
+     * Un admin peut créer le profil d'un autre utilisateur.
+     */
+    @PostMapping
+    public ResponseEntity<PersonProfileResponse> createPersonProfile(
+            @Valid @RequestBody CreatePersonProfileRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        Long targetPersonId = securityUtils.resolveTargetPersonId(
+                request.getPersonId(),
+                jwt
+        );
+
+        log.info("Création profil pour la personne {}", targetPersonId);
+        PersonProfileResponse profile = personService.createPersonProfile(targetPersonId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(profile);
+    }
+
+    /**
+     * PATCH /persons/{id}
+     * Modifie son propre profil ou celui d'un autre si admin.
+     */
+    @PatchMapping("/{id}")
+    public ResponseEntity<PersonProfileResponse> updatePerson(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdatePersonProfileRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        if (!securityUtils.isOwnerOrAdmin(id, jwt)) {
+            throw new AccessDeniedException("Vous n'avez pas la permission de modifier ce profil");
+        }
+
+        log.info("Modification profil personne {}", id);
+        return ResponseEntity.ok(personService.updatePersonProfile(id, request));
+    }
+
+    /**
+     * 🦥 Si nous voulons vraiment respecter les standards REST, faudrait utiliser la méthode DELETE
+     * PATCH /persons/{id}/soft-delete
+     * Anonymise une personne (soft delete).
+     *
+     * @param id L'ID de la personne
+     * @return 204 NO CONTENT
+     */
+    @PatchMapping("/{id}/soft-delete")
+    public ResponseEntity<PersonResponse> softDeletePerson(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        if (!securityUtils.isOwnerOrAdmin(id, jwt)) {
+            throw new AccessDeniedException("Vous n'avez pas la permission");
+        }
+
+        log.warn("Soft delete personne {} par {}", id, securityUtils.extractUserId(jwt));
+        return ResponseEntity.ok(personService.softDeletePerson(id));
+    }
+
+    /**
+     * DELETE /persons/{id}
+     * Supprime définitivement une personne.
+     *
+     * @param id L'ID de la personne
+     * @return 204 NO CONTENT
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<@NonNull Void> deletePerson(@PathVariable Long id) {
+        personService.deletePerson(id);
+        log.warn("SUPPRESSION DÉFINITIVE personne {}", id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * POST /persons/{personId}/roles/{roleLabel}
+     * Assigne un rôle à une personne.
+     *
+     * @param personId L'ID de la personne
+     * @param roleLabel Le label du rôle
+     * @return 200 OK avec la personne mise à jour
+     */
+    @PostMapping("/{personId}/roles/{roleLabel}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<@NonNull PersonResponse> assignRole(
+            @PathVariable Long personId,
+            @PathVariable String roleLabel) {
+        log.info("Attribution rôle {} à personne {}", roleLabel, personId);
+        PersonResponse person = personService.assignRole(personId, roleLabel);
+        return ResponseEntity.ok(person);
+    }
+
+    /**
+     * DELETE /persons/{personId}/roles/{roleLabel}
+     * Retire un rôle d'une personne.
+     *
+     * @param personId L'ID de la personne
+     * @param roleLabel Le label du rôle
+     * @return 200 OK avec la personne mise à jour
+     */
+    @DeleteMapping("/{personId}/roles/{roleLabel}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<@NonNull PersonResponse> removeRole(
+            @PathVariable Long personId,
+            @PathVariable String roleLabel) {
+        log.info("Retrait rôle {} à personne {}", roleLabel, personId);
+        PersonResponse person = personService.removeRole(personId, roleLabel);
+        return ResponseEntity.ok(person);
     }
 }

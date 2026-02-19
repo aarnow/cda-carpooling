@@ -1,6 +1,5 @@
 package com.cda.carpooling.dto.response;
 
-import com.cda.carpooling.entity.PersonProfile;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

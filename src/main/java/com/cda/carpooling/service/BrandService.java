@@ -8,16 +8,21 @@ import com.cda.carpooling.exception.ResourceNotFoundException;
 import com.cda.carpooling.mapper.BrandMapper;
 import com.cda.carpooling.repository.BrandRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Service de gestion des marques de véhicules.
+ * CRUD réservé aux administrateurs uniquement.
+ */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BrandService {
     private final BrandMapper brandMapper;
-
     private final BrandRepository brandRepository;
 
     /**
@@ -42,10 +47,12 @@ public class BrandService {
 
     /**
      * Crée une nouvelle marque.
+     * Vérifie l'unicité du nom avant création.
      */
     @Transactional
     public BrandResponse createBrand(BrandRequest request) {
         if (brandRepository.existsByName(request.getName())) {
+            log.warn("Tentative de création d'une marque existante : '{}'", request.getName());
             throw new DuplicateResourceException(
                     "Une marque avec le nom '" + request.getName() + "' existe déjà"
             );
@@ -56,12 +63,13 @@ public class BrandService {
                 .build();
 
         Brand saved = brandRepository.save(brand);
-
+        log.info("Marque créée : {} (id={})", saved.getName(), saved.getId());
         return brandMapper.toResponse(saved);
     }
 
     /**
-     * Met à jour une marque existante.
+     * Met à jour une marque existante (PUT — remplacement complet).
+     * Vérifie l'unicité du nouveau nom si modifié.
      */
     @Transactional
     public BrandResponse updateBrand(Long id, BrandRequest request) {
@@ -69,6 +77,7 @@ public class BrandService {
 
         if (!brand.getName().equals(request.getName())
                 && brandRepository.existsByName(request.getName())) {
+            log.warn("Tentative de renommage vers un nom existant : '{}'", request.getName());
             throw new DuplicateResourceException(
                     "Une marque avec le nom '" + request.getName() + "' existe déjà"
             );
@@ -76,6 +85,7 @@ public class BrandService {
 
         brand.setName(request.getName());
         Brand updated = brandRepository.save(brand);
+        log.info("Marque mise à jour : {} (id={})", updated.getName(), updated.getId());
         return brandMapper.toResponse(updated);
     }
 
@@ -88,6 +98,8 @@ public class BrandService {
         Brand brand = findBrandOrThrow(id);
 
         if (!brand.getVehicles().isEmpty()) {
+            log.warn("Tentative de suppression marque '{}' avec {} véhicules associés",
+                    brand.getName(), brand.getVehicles().size());
             throw new IllegalStateException(
                     "Impossible de supprimer la marque '" + brand.getName()
                             + "' : " + brand.getVehicles().size() + " véhicule(s) y sont associés"
@@ -95,6 +107,7 @@ public class BrandService {
         }
 
         brandRepository.delete(brand);
+        log.info("Marque supprimée : {} (id={})", brand.getName(), id);
     }
 
     //region Utils

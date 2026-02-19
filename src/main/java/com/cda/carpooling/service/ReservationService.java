@@ -6,14 +6,19 @@ import com.cda.carpooling.exception.ResourceNotFoundException;
 import com.cda.carpooling.mapper.ReservationMapper;
 import com.cda.carpooling.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Service de gestion des réservations.
+ */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ReservationService {
 
     private final ReservationRepository reservationRepository;
@@ -23,17 +28,23 @@ public class ReservationService {
     private final ReservationMapper reservationMapper;
 
     /**
-     * Réserve une place sur un trajet OU annule la réservation existante (toggle).
-     * Appelé par TripController sur POST /trips/{id}/persons
+     * Réserve une place sur un trajet OU gère l'annulation/réactivation.
+     *
+     * @param tripId ID du trajet
+     * @param personId ID de la personne
+     * @return ReservationResponse avec le nouvel état
      */
     @Transactional
     public ReservationResponse toggleReservation(Long tripId, Long personId) {
+        log.debug("Toggle réservation : tripId={}, personId={}", tripId, personId);
         Trip trip = findTripOrThrow(tripId);
 
         if (trip.getTripStatus().getLabel().equals(TripStatus.CANCELLED)) {
+            log.warn("Tentative de réservation sur trajet annulé : tripId={}", tripId);
             throw new IllegalStateException("Impossible de réserver sur un trajet annulé");
         }
         if (trip.getTripStatus().getLabel().equals(TripStatus.COMPLETED)) {
+            log.warn("Tentative de réservation sur trajet terminé : tripId={}", tripId);
             throw new IllegalStateException("Impossible de réserver sur un trajet terminé");
         }
 
@@ -43,17 +54,23 @@ public class ReservationService {
                 .findByPersonIdAndTripId(personId, tripId)
                 .map(existing -> {
                     if (existing.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED)) {
+                        log.info("Réactivation réservation {} (personId={}, tripId={})",
+                                existing.getId(), personId, tripId);
                         return createReservation(trip, person);
                     } else {
+                        log.info("Annulation réservation {} (personId={}, tripId={})",
+                                existing.getId(), personId, tripId);
                         return cancelReservation(existing, trip);
                     }
                 })
-                .orElseGet(() -> createReservation(trip, person));
+                .orElseGet(() -> {
+                    log.info("➕ Nouvelle réservation (personId={}, tripId={})", personId, tripId);
+                    return createReservation(trip, person);
+                });
     }
 
     /**
      * Annule toutes les réservations actives d'un trajet.
-     * Appelé par TripService lors de l'annulation ou suppression d'un trajet.
      *
      * @param trip Le trajet dont les réservations doivent être annulées
      */
@@ -65,16 +82,23 @@ public class ReservationService {
                 .filter(r -> !r.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED))
                 .toList();
 
+        if (activeReservations.isEmpty()) {
+            log.debug("Aucune réservation active à annuler pour tripId={}", trip.getId());
+            return;
+        }
+
         activeReservations.forEach(reservation -> {
             reservation.setReservationStatus(cancelledStatus);
             reservationRepository.save(reservation);
+            log.info("Réservation {} annulée (trajet {} annulé)",
+                    reservation.getId(), trip.getId());
         });
+
+        log.info("{} réservations annulées (trajet {})", activeReservations.size(), trip.getId());
     }
 
     /**
-     * Vérifie si une personne est en relation avec un trajet
-     * (conducteur ou passager avec réservation active).
-     * Appelé par TripController pour vérifier les permissions.
+     * Vérifie si une personne a une réservation (active ou annulée) sur un trajet.
      */
     @Transactional(readOnly = true)
     public boolean isPersonRelatedToTrip(Long personId, Long tripId) {
@@ -84,12 +108,18 @@ public class ReservationService {
     }
 
     //region Utils
+    /**
+     * Crée une nouvelle réservation CONFIRMED et décrémente les places disponibles.
+     */
     private ReservationResponse createReservation(Trip trip, Person person) {
         if (trip.getAvailableSeats() <= 0) {
+            log.warn("Plus de places disponibles : tripId={}", trip.getId());
             throw new IllegalStateException("Ce trajet n'a plus de places disponibles");
         }
 
         if (trip.getDriver().getId().equals(person.getId())) {
+            log.warn("Conducteur tente de réserver son propre trajet : personId={}, tripId={}",
+                    person.getId(), trip.getId());
             throw new AccessDeniedException("Un conducteur ne peut pas réserver son propre trajet");
         }
 
@@ -108,19 +138,27 @@ public class ReservationService {
                 .build();
 
         Reservation saved = reservationRepository.save(reservation);
+        log.info("Réservation créée : id={}, personId={}, tripId={} ({} places restantes)",
+                saved.getId(), person.getId(), trip.getId(), trip.getAvailableSeats());
         return reservationMapper.toResponse(saved);
     }
 
+    /**
+     * Annule une réservation et restitue la place si elle était confirmée.
+     */
     private ReservationResponse cancelReservation(Reservation reservation, Trip trip) {
         ReservationStatus cancelledStatus = findCancelledStatusOrThrow();
 
         if (!reservation.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED)) {
             trip.setAvailableSeats(trip.getAvailableSeats() + 1);
             tripRepository.save(trip);
+            log.debug("Place restituée : tripId={} ({} places disponibles)",
+                    trip.getId(), trip.getAvailableSeats());
         }
 
         reservation.setReservationStatus(cancelledStatus);
         Reservation updated = reservationRepository.save(reservation);
+        log.info("Réservation annulée : id={}", updated.getId());
         return reservationMapper.toResponse(updated);
     }
 

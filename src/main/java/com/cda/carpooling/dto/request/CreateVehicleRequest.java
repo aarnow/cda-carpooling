@@ -1,5 +1,6 @@
 package com.cda.carpooling.dto.request;
 
+import com.cda.carpooling.validation.ValidVehiclePlate;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,10 +25,7 @@ public class CreateVehicleRequest {
     private int seats;
 
     @NotBlank(message = "La plaque d'immatriculation est obligatoire")
-    @Pattern(
-            regexp = "^[A-Z]{2}-\\d{3}-[A-Z]{2}$",
-            message = "La plaque doit respecter le format français : AB-123-CD"
-    )
+    @ValidVehiclePlate
     private String plate;
 
     @Size(max = 1000, message = "La description ne peut pas dépasser 1000 caractères")

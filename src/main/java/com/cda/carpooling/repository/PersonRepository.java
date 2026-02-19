@@ -39,6 +39,8 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
     @Query("SELECT u FROM Person u")
     List<Person> findAllWithProfileAndRoles();
 
-    // TODO
+    /**
+     * Retourne une personne selon son email
+     */
     Optional<Person> findByEmail(String email);
 }

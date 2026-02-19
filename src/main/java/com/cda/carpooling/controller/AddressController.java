@@ -7,6 +7,7 @@ import com.cda.carpooling.service.AddressService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,6 +19,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/addresses")
 @RequiredArgsConstructor
+@Slf4j
 public class AddressController {
 
     private final AddressService addressService;
@@ -46,6 +48,8 @@ public class AddressController {
     public ResponseEntity<List<AddressResponse>> searchAddresses(
             @RequestParam String q,
             @RequestParam(required = false) String city) {
+
+        log.info("Recherche d'adresses : query='{}', city='{}'", q, city);
         return ResponseEntity.ok(addressService.searchAddresses(q, city));
     }
 
@@ -56,6 +60,7 @@ public class AddressController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AddressResponse> createAddress(@Valid @RequestBody CreateAddressRequest request) {
+        log.info("Création adresse : {}, {}", request.getStreetName(), request.getCityId());
         return ResponseEntity.status(HttpStatus.CREATED).body(addressService.createAddress(request));
     }
 
@@ -68,6 +73,7 @@ public class AddressController {
     public ResponseEntity<AddressResponse> updateAddress(
             @PathVariable Long id,
             @Valid @RequestBody UpdateAddressRequest request) {
+        log.info("Modification adresse {}", id);
         return ResponseEntity.ok(addressService.updateAddress(id, request));
     }
 
@@ -78,6 +84,7 @@ public class AddressController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteAddress(@PathVariable Long id) {
+        log.warn("Suppression adresse {}", id);
         addressService.deleteAddress(id);
         return ResponseEntity.noContent().build();
     }

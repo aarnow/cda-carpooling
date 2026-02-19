@@ -20,6 +20,8 @@ public interface BrandRepository extends JpaRepository<Brand, Long> {
      */
     List<Brand> findAllByOrderByNameAsc();
 
-    // TODO
+    /**
+     * Retourne une marque selon son nom
+     */
     Optional<Brand> findByName(String name);
 }

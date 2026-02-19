@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    //region 400
+    //region ── 400 ─────────────────────────────────────────────────────────
     /**
      * Gère les erreurs de validation Jakarta (@Valid) - 400.
      */
@@ -303,7 +303,7 @@ public class GlobalExceptionHandler {
     }
     //endregion
 
-    //region 500
+    //region ── 500 ─────────────────────────────────────────────────────────
     /**
      * Gère les autres erreurs d'accès aux données - 500.
      */
