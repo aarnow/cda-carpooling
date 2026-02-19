@@ -6,18 +6,25 @@ import com.cda.carpooling.dto.response.AddressResponse;
 import com.cda.carpooling.entity.Address;
 import com.cda.carpooling.entity.City;
 import com.cda.carpooling.exception.ResourceNotFoundException;
+import com.cda.carpooling.integration.GeoApiService;
 import com.cda.carpooling.mapper.AddressMapper;
 import com.cda.carpooling.repository.AddressRepository;
 import com.cda.carpooling.repository.CityRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Service de gestion des adresses.
+ * Intègre la BAN (Base Adresse Nationale) pour la validation et l'autocomplétion.
+ */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AddressService {
 
     private final CityRepository cityRepository;
@@ -27,17 +34,18 @@ public class AddressService {
     private final GeoApiService geoApiService;
 
     /**
-     * Recherche des adresses via l'api BAN.
-     * Résultats validés avec coordonnées GPS incluses.
-     * Sauvegarde automatiquement les nouvelles adresses et villes en bdd.
+     * Recherche des adresses via la BAN (Base Adresse Nationale).
+     * Sauvegarde automatiquement les nouvelles adresses et villes.
      *
-     * @param query numéro et nom de la rue (ex: "5 rue de Prat")
-     * @param cityName nom de la ville (ex: "Séné")
-     * @return Liste d'AddressResponse
+     * @param query Numéro et nom de rue (ex: "5 rue de Prat")
+     * @param cityName Nom de la ville pour filtrer (ex: "Séné")
+     * @return Liste d'AddressResponse avec coordonnées GPS et ID BDD
      */
     @Transactional
     public List<AddressResponse> searchAddresses(String query, String cityName) {
+        log.debug("Recherche BAN : query='{}', city='{}'", query, cityName);
         List<AddressResponse> apiResults =  geoApiService.searchAddresses(query, cityName);
+        log.debug("BAN retourne {} résultats", apiResults.size());
 
         apiResults.forEach(result -> {
             if (result.getCity() == null || result.getStreetName() == null) return;
@@ -48,7 +56,10 @@ public class AddressService {
                                 .name(result.getCity().getName())
                                 .postalCode(result.getCity().getPostalCode())
                                 .build();
-                        return cityRepository.save(newCity);
+
+                        City saved = cityRepository.save(newCity);
+                        log.info("Ville sauvegardée en BDD : {}", saved.getName());
+                        return saved;
                     });
 
             boolean exists = addressRepository.existsByStreetNameAndStreetNumberAndCityId(
@@ -66,6 +77,9 @@ public class AddressService {
                         .city(city)
                         .validated(true)
                         .build());
+
+                log.info("Adresse sauvegardée en BDD : {} {}, {}",
+                        result.getStreetNumber(), result.getStreetName(), city.getName());
             }
         });
 
@@ -105,10 +119,15 @@ public class AddressService {
 
         Address address = buildAddress(request, city);
         Address saved = addressRepository.save(address);
+        log.info("Adresse créée : {} {}, {}", saved.getStreetNumber(),
+                saved.getStreetName(), city.getName());
 
         return addressMapper.toResponse(saved);
     }
 
+    /**
+     * Met à jour une adresse.
+     */
     @Transactional
     public AddressResponse updateAddress(Long id, UpdateAddressRequest request) {
         Address address = findAddressOrThrow(id);
@@ -135,7 +154,7 @@ public class AddressService {
         }
 
         Address updated = addressRepository.save(address);
-
+        log.info("Adresse mise à jour : id={}", id);
         return addressMapper.toResponse(updated);
     }
 
@@ -143,25 +162,6 @@ public class AddressService {
     public void deleteAddress(Long id) {
         Address address = findAddressOrThrow(id);
         addressRepository.delete(address);
-    }
-
-    /**
-     * Recherche une adresse existante ou la crée si elle n'existe pas.
-     */
-    @Transactional
-    public Address findOrCreate(CreateAddressRequest request) {
-        City city = cityService.findCityOrThrow(request.getCityId());
-
-        return addressRepository
-                .findByStreetNameAndStreetNumberAndCityId(
-                        request.getStreetName(),
-                        request.getStreetNumber(),
-                        request.getCityId()
-                )
-                .orElseGet(() -> {
-                    Address newAddress = buildAddress(request, city);
-                    return addressRepository.save(newAddress);
-                });
     }
 
     //region Utils

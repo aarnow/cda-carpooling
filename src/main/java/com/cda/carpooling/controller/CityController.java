@@ -7,6 +7,7 @@ import com.cda.carpooling.service.CityService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,6 +19,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/cities")
 @RequiredArgsConstructor
+@Slf4j
 public class CityController {
 
     private final CityService cityService;
@@ -45,6 +47,7 @@ public class CityController {
     @GetMapping("/search")
     public ResponseEntity<List<CityResponse>> searchCities(
             @RequestParam String name) {
+        log.info("Recherche ville : '{}'", name);
         return ResponseEntity.ok(cityService.searchCities(name));
     }
 
@@ -54,6 +57,7 @@ public class CityController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CityResponse> createCity(@Valid @RequestBody CreateCityRequest request) {
+        log.info("Création ville : {}", request.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(cityService.createCity(request));
     }
 
@@ -65,6 +69,7 @@ public class CityController {
     public ResponseEntity<CityResponse> updateCity(
             @PathVariable Long id,
             @Valid @RequestBody UpdateCityRequest request) {
+        log.info("Modification ville {}", id);
         return ResponseEntity.ok(cityService.updateCity(id, request));
     }
 
@@ -75,6 +80,7 @@ public class CityController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteCity(@PathVariable Long id) {
         cityService.deleteCity(id);
+        log.warn("Suppression ville {}", id);
         return ResponseEntity.noContent().build();
     }
 }

@@ -6,13 +6,13 @@ import com.cda.carpooling.dto.response.PersonMinimalResponse;
 import com.cda.carpooling.dto.response.ReservationResponse;
 import com.cda.carpooling.dto.response.TripResponse;
 import com.cda.carpooling.dto.response.TripMinimalResponse;
-import com.cda.carpooling.repository.ReservationRepository;
 import com.cda.carpooling.security.SecurityUtils;
 import com.cda.carpooling.service.ReservationService;
 import com.cda.carpooling.service.TripService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -22,13 +22,13 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Tag(name = "Trajets", description = "Gestion des trajets")
 @RestController
 @RequestMapping("/trips")
 @RequiredArgsConstructor
+@Slf4j
 public class TripController {
 
     private final TripService tripService;
@@ -45,6 +45,7 @@ public class TripController {
             @RequestParam(required = false) LocalDate tripDate,
             @RequestParam(required = false) String startingCity,
             @RequestParam(required = false) String arrivalCity) {
+        log.debug("Recherche trajets : date={}, départ={}, arrivée={}", tripDate, startingCity, arrivalCity);
         return ResponseEntity.ok(tripService.getAllTrips(tripDate, startingCity, arrivalCity));
     }
 
@@ -69,6 +70,8 @@ public class TripController {
             @AuthenticationPrincipal Jwt jwt) {
 
         Long personId = securityUtils.extractUserId(jwt);
+        log.debug("GET /trips/{}/persons par personne {}", id, personId);
+
         boolean isAdmin = securityUtils.isAdmin(jwt);
         boolean isRelated = tripService.isPersonRelatedToTrip(personId, id);
 
@@ -91,6 +94,8 @@ public class TripController {
             @AuthenticationPrincipal Jwt jwt) {
 
         Long driverId = securityUtils.extractUserId(jwt);
+        log.info("Création trajet par conducteur {}", driverId);
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(tripService.createTrip(driverId, request));
     }
@@ -105,7 +110,7 @@ public class TripController {
             @PathVariable Long id,
             @Valid @RequestBody UpdateTripRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-
+        log.info("Modification trajet {} par personne {}", id, securityUtils.extractUserId(jwt));
         checkDriverOrAdmin(id, jwt);
         return ResponseEntity.ok(tripService.updateTrip(id, request));
     }
@@ -119,7 +124,7 @@ public class TripController {
     public ResponseEntity<Void> deleteTrip(
             @PathVariable Long id,
             @AuthenticationPrincipal Jwt jwt) {
-
+        log.warn("Suppression trajet {} par personne {}", id, securityUtils.extractUserId(jwt));
         checkDriverOrAdmin(id, jwt);
         tripService.deleteTrip(id);
         return ResponseEntity.noContent().build();
@@ -135,9 +140,12 @@ public class TripController {
             @AuthenticationPrincipal Jwt jwt) {
 
         Long personId = securityUtils.extractUserId(jwt);
+        log.info("Toggle réservation trajet {} par personne {}", id, personId);
+
         return ResponseEntity.ok(reservationService.toggleReservation(id, personId));
     }
 
+    //region Utils
     /**
      * Vérifie que l'utilisateur est le conducteur du trajet ou un admin.
      */
@@ -149,4 +157,5 @@ public class TripController {
             );
         }
     }
+    //endregion
 }

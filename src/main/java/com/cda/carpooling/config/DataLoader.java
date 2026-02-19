@@ -21,6 +21,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@SuppressWarnings("java:S2068") // Fixtures only - passwords are test data
 public class DataLoader {
 
     private final PersonStatusRepository personStatusRepository;
@@ -49,7 +50,7 @@ public class DataLoader {
         initBrands();
 
         if (isDevelopmentProfile()) {
-            log.info("🧪 Development profile detected - loading test data...");
+            log.info("🧪 Development profile detected - loading fixtures...");
             initTestPersons();
             initVehicles();
             initCities();
@@ -67,27 +68,22 @@ public class DataLoader {
      */
     private void initPersonStatuses() {
         if (personStatusRepository.count() == 0) {
-            log.info("📊 Creating person statuses...");
+            log.info("🔄 Creating person statuses...");
 
-            personStatusRepository.save(PersonStatus.builder()
-                    .label(PersonStatus.ACTIVE)
-                    .description("Personne active et en règle")
-                    .build());
-
-            personStatusRepository.save(PersonStatus.builder()
-                    .label(PersonStatus.PENDING)
-                    .description("Personne en attente de validation")
-                    .build());
-
-            personStatusRepository.save(PersonStatus.builder()
-                    .label(PersonStatus.SUSPENDED)
-                    .description("Personne suspendu temporairement")
-                    .build());
-
-            personStatusRepository.save(PersonStatus.builder()
-                    .label(PersonStatus.DELETED)
-                    .description("Personne supprimée (soft delete)")
-                    .build());
+            personStatusRepository.saveAll(List.of(
+                    PersonStatus.builder()
+                            .label(PersonStatus.ACTIVE)
+                            .description("Personne active et en règle").build(),
+                    PersonStatus.builder()
+                            .label(PersonStatus.PENDING)
+                            .description("Personne en attente de validation").build(),
+                    PersonStatus.builder()
+                            .label(PersonStatus.SUSPENDED)
+                            .description("Personne suspendu temporairement").build(),
+                    PersonStatus.builder()
+                            .label(PersonStatus.DELETED)
+                            .description("Personne supprimée (soft delete)").build()
+            ));
 
             log.info("✅ Person statuses created");
         }
@@ -98,22 +94,19 @@ public class DataLoader {
      */
     private void initRoles() {
         if (roleRepository.count() == 0) {
-            log.info("📊 Creating roles...");
+            log.info("🔄 Creating roles...");
 
-            roleRepository.save(Role.builder()
-                    .label(Role.ROLE_STUDENT)
-                    .description("Élève du GRETA pouvant réserver des trajets")
-                    .build());
-
-            roleRepository.save(Role.builder()
-                    .label(Role.ROLE_DRIVER)
-                    .description("Conducteur pouvant proposer des trajets")
-                    .build());
-
-            roleRepository.save(Role.builder()
-                    .label(Role.ROLE_ADMIN)
-                    .description("Administrateur avec tous les droits")
-                    .build());
+            roleRepository.saveAll(List.of(
+                    Role.builder()
+                            .label(Role.ROLE_STUDENT)
+                            .description("Élève du GRETA pouvant réserver des trajets").build(),
+                    Role.builder()
+                            .label(Role.ROLE_DRIVER)
+                            .description("Conducteur pouvant proposer des trajets").build(),
+                    Role.builder()
+                            .label(Role.ROLE_ADMIN)
+                            .description("Administrateur avec tous les droits").build()
+            ));
 
             log.info("✅ Roles created");
         }
@@ -124,19 +117,13 @@ public class DataLoader {
      */
     private void initTripStatus() {
         if (tripStatusRepository.count() == 0) {
-            log.info("📊 Creating trip status...");
+            log.info("🔄 Creating trip status...");
 
-            tripStatusRepository.save(TripStatus.builder()
-                    .label(TripStatus.CANCELLED)
-                    .build());
-
-            tripStatusRepository.save(TripStatus.builder()
-                    .label(TripStatus.PLANNED)
-                    .build());
-
-            tripStatusRepository.save(TripStatus.builder()
-                    .label(TripStatus.COMPLETED)
-                    .build());
+            tripStatusRepository.saveAll(List.of(
+                    TripStatus.builder().label(TripStatus.CANCELLED).build(),
+                    TripStatus.builder().label(TripStatus.PLANNED).build(),
+                    TripStatus.builder().label(TripStatus.COMPLETED).build()
+            ));
 
             log.info("✅ Trip status created");
         }
@@ -147,15 +134,12 @@ public class DataLoader {
      */
     private void initReservationStatus() {
         if (reservationStatusRepository.count() == 0) {
-            log.info("📊 Creating reservations status...");
+            log.info("🔄 Creating reservations status...");
 
-            reservationStatusRepository.save(ReservationStatus.builder()
-                    .label(ReservationStatus.CONFIRMED)
-                    .build());
-
-            reservationStatusRepository.save(ReservationStatus.builder()
-                    .label(ReservationStatus.CANCELLED)
-                    .build());
+            reservationStatusRepository.saveAll(List.of(
+                    ReservationStatus.builder().label(ReservationStatus.CONFIRMED).build(),
+                    ReservationStatus.builder().label(ReservationStatus.CANCELLED).build()
+            ));
 
             log.info("✅ Reservations status created");
         }
@@ -163,7 +147,7 @@ public class DataLoader {
 
     private void initBrands() {
         if (brandRepository.count() > 0) return;
-        log.info("🚗 Creating brands...");
+        log.info("🔄 Creating brands...");
         List<String> brandNames = List.of(
                 "Mercedes-Benz", "Porsche", "Honda", "Jeep", "Toyota",
                 "Nissan", "BMW", "Chevrolet", "Chrysler", "Tesla",
@@ -224,7 +208,7 @@ public class DataLoader {
             return;
         }
 
-        log.info("👤 Creating test persons...");
+        log.info("🧪 Creating test persons...");
 
         PersonStatus activeStatus = personStatusRepository.findByLabel(PersonStatus.ACTIVE)
                 .orElseThrow(() -> new IllegalStateException("ACTIVE status not found"));
@@ -255,7 +239,7 @@ public class DataLoader {
         admin.getRoles().add(adminRole);
         personRepository.save(admin);
 
-        log.info("✅ Admin person: admin@greta.fr / Admin@123");
+        log.info("Admin person: admin@greta.fr / Admin@123");
     }
 
     /**
@@ -273,7 +257,7 @@ public class DataLoader {
 
         student.getRoles().add(studentRole);
         personRepository.save(student);
-        log.info("✅ Student person created : {} / {}", email, password);
+        log.info("Student person created : {} / {}", email, password);
     }
 
     /**
@@ -296,7 +280,7 @@ public class DataLoader {
         driver.getRoles().add(driverRole);
         personRepository.save(driver);
 
-        log.info("✅ Driver person: driver@test.fr / Driver@123");
+        log.info("Driver person: driver@test.fr / Driver@123");
     }
     //endregion
 
@@ -309,7 +293,7 @@ public class DataLoader {
             return;
         }
 
-        log.info("🚗 Creating vehicles...");
+        log.info("🧪 Creating vehicles...");
 
         Person driver = personRepository.findByEmail("driver@test.fr")
                 .orElseThrow(() -> new IllegalStateException("Driver not found"));
@@ -327,7 +311,7 @@ public class DataLoader {
                 .build();
 
         vehicleRepository.save(vehicle);
-        log.info("✅ Vehicle created : Renault Clio (AB-123-CD) for driver@test.fr");
+        log.info("✅ Vehicle created");
     }
 
     /**
@@ -335,11 +319,11 @@ public class DataLoader {
      */
     private void initCities() {
         if (cityRepository.count() > 0) {
-            log.info("⏭️  Cities already exist, skipping...");
+            log.info("⏭️ Cities already exist, skipping...");
             return;
         }
 
-        log.info("🏙️ Creating cities...");
+        log.info("🧪 Creating cities...");
 
         cityRepository.save(City.builder()
                 .name("Séné")
@@ -351,7 +335,7 @@ public class DataLoader {
                 .postalCode("56000")
                 .build());
 
-        log.info("✅ Cities created : Séné, Vannes");
+        log.info("✅ Cities created");
     }
 
     /**
@@ -363,7 +347,7 @@ public class DataLoader {
             return;
         }
 
-        log.info("📍 Creating addresses...");
+        log.info("🧪 Creating addresses...");
 
         City sene = cityRepository.findByName("Séné")
                 .orElseThrow(() -> new IllegalStateException("Séné city not found"));
@@ -387,7 +371,7 @@ public class DataLoader {
                 .longitude(-2.7603)
                 .build());
 
-        log.info("✅ Addresses created : Séné → Vannes");
+        log.info("✅ Addresses created");
     }
 
     /**
@@ -396,11 +380,11 @@ public class DataLoader {
      */
     private void initTrips() {
         if (tripRepository.count() > 0) {
-            log.info("⏭️  Trips already exist, skipping...");
+            log.info("⏭️ Trips already exist, skipping...");
             return;
         }
 
-        log.info("🗺️ Creating trips...");
+        log.info("🧪 Creating trips...");
 
         Person driver = personRepository.findByEmail("driver@test.fr")
                 .orElseThrow(() -> new IllegalStateException("Driver not found"));
@@ -429,7 +413,7 @@ public class DataLoader {
                 .build();
 
         tripRepository.save(trip);
-        log.info("✅ Trip created : Séné → Vannes in 7 days (3 seats available)");
+        log.info("✅ Trip created");
     }
 
     /**
@@ -438,11 +422,11 @@ public class DataLoader {
      */
     private void initReservations() {
         if (reservationRepository.count() > 0) {
-            log.info("⏭️  Reservations already exist, skipping...");
+            log.info("⏭️ Reservations already exist, skipping...");
             return;
         }
 
-        log.info("📋 Creating reservations...");
+        log.info("🧪 Creating reservations...");
 
         ReservationStatus pendingStatus = reservationStatusRepository.findByLabel(ReservationStatus.CONFIRMED)
                 .orElseThrow(() -> new IllegalStateException("PENDING status not found"));
@@ -473,8 +457,7 @@ public class DataLoader {
         trip.setAvailableSeats(trip.getAvailableSeats() - 2);
         tripRepository.save(trip);
 
-        log.info("✅ Reservations created : student1 + student2 on Séné → Vannes trip");
-        log.info("⏭️  student3@test.fr has no reservation (as expected)");
+        log.info("✅ Reservations created");
     }
     //endregion
 

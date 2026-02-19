@@ -14,7 +14,9 @@ import com.cda.carpooling.repository.BrandRepository;
 import com.cda.carpooling.repository.PersonRepository;
 import com.cda.carpooling.repository.RoleRepository;
 import com.cda.carpooling.repository.VehicleRepository;
+import com.cda.carpooling.validation.VehiclePlateValidator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +28,7 @@ import java.util.Optional;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class VehicleService {
 
     private final VehicleRepository vehicleRepository;
@@ -56,13 +59,17 @@ public class VehicleService {
 
     /**
      * Crée un véhicule pour une personne.
-     * Une personne ne peut posséder qu'un seul véhicule.
+     * Attribution automatique du rôle DRIVER.
+     *
      * @param targetPersonId ID de la personne cible
-     * @param request        Données du véhicule
+     * @param request Données du véhicule
+     * @return VehicleResponse
+     * @throws DuplicateResourceException Si la personne a déjà un véhicule
      */
     @Transactional
     public VehicleResponse createVehicle(Long targetPersonId, CreateVehicleRequest request) {
         if (vehicleRepository.existsByPersonId(targetPersonId)) {
+            log.warn("Tentative de création d'un 2e véhicule pour personne {}", targetPersonId);
             throw new DuplicateResourceException(
                     "Cette personne possède déjà un véhicule"
             );
@@ -76,16 +83,23 @@ public class VehicleService {
                 .brand(brand)
                 .model(request.getModel())
                 .seats(request.getSeats())
-                .plate(request.getPlate())
+                .plate(VehiclePlateValidator.normalize(request.getPlate()))
                 .description(request.getDescription())
                 .build();
 
         Role driverRole = roleRepository.findByLabel(Role.ROLE_DRIVER)
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "label", Role.ROLE_DRIVER));
-        if (!person.getRoles().contains(driverRole)) person.addRole(driverRole);
+
+        if (!person.getRoles().contains(driverRole)) {
+            person.addRole(driverRole);
+            log.info("Rôle DRIVER attribué à personne {}", targetPersonId);
+        }
 
         personRepository.save(person);
         Vehicle saved = vehicleRepository.save(vehicle);
+        log.info("Véhicule créé : {} {} ({}) pour personne {} (id={})",
+                brand.getName(), saved.getModel(), saved.getPlate(),
+                targetPersonId, saved.getId());
 
         return vehicleMapper.toResponse(saved);
     }
@@ -111,13 +125,14 @@ public class VehicleService {
             vehicle.setSeats(request.getSeats());
         }
         if (request.getPlate() != null) {
-            vehicle.setPlate(request.getPlate());
+            vehicle.setPlate(VehiclePlateValidator.normalize(request.getPlate()));
         }
         if (request.getDescription() != null) {
             vehicle.setDescription(request.getDescription());
         }
 
         Vehicle updated = vehicleRepository.save(vehicle);
+        log.info("Véhicule mis à jour : id={}", id);
 
         return vehicleMapper.toResponse(updated);
     }
@@ -130,22 +145,24 @@ public class VehicleService {
         Vehicle vehicle = findVehicleOrThrow(id);
         Person person = vehicle.getPerson();
 
-        // 1. Annuler les trajets à venir + leurs réservations
+        log.info("Suppression véhicule {} (propriétaire {})", id, person.getId());
+
         tripService.cancelDriverTrips(person.getId());
 
-        // 2. Retirer le rôle DRIVER
         Role driverRole = roleRepository.findByLabel(Role.ROLE_DRIVER)
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "label", Role.ROLE_DRIVER));
 
         if (person.getRoles().contains(driverRole)) {
             person.removeRole(driverRole);
             personRepository.save(person);
+            log.info("Rôle DRIVER retiré à personne {}", person.getId());
         }
 
-        // 3. Dissocier et supprimer le véhicule
         person.setVehicle(null);
         vehicle.setPerson(null);
         vehicleRepository.delete(vehicle);
+
+        log.warn("Véhicule {} supprimé (propriétaire {})", id, person.getId());
     }
 
     /**

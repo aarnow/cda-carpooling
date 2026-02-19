@@ -27,8 +27,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,6 +44,9 @@ class AuthServiceTest {
     private JwtService jwtService;
 
     @Mock
+    private RefreshTokenService refreshTokenService;
+
+    @Mock
     private BCryptPasswordEncoder passwordEncoder;
 
     @InjectMocks
@@ -57,6 +59,7 @@ class AuthServiceTest {
     private PersonStatus suspendedStatus;
     private AuthRequest validAuthRequest;
     private PersonResponse mockPersonResponse;
+    private String deviceFingerprint;
 
     @BeforeEach
     void setUp() {
@@ -97,6 +100,7 @@ class AuthServiceTest {
                 .build();
 
         validAuthRequest = new AuthRequest("test@test.fr", "password123");
+        deviceFingerprint = "abc123def456";  // Mock fingerprint
     }
 
     // ==================== LOGIN ====================
@@ -106,24 +110,51 @@ class AuthServiceTest {
     class LoginTests {
 
         @Test
-        @DisplayName("Devrait retourner un token JWT lors d'un login réussi")
-        void shouldReturnTokenWhenLoginSucceeds() {
+        @DisplayName("Devrait retourner un access token + refresh token lors d'un login réussi")
+        void shouldReturnTokensWhenLoginSucceeds() {
             // Given
             when(personRepository.findByEmailWithProfileAndRoles("test@test.fr"))
                     .thenReturn(Optional.of(activePerson));
             when(passwordEncoder.matches("password123", "hashed_password")).thenReturn(true);
             when(jwtService.generateToken(activePerson)).thenReturn("jwt.token.value");
+            when(refreshTokenService.createRefreshToken(eq(activePerson), eq(deviceFingerprint), isNull()))
+                    .thenReturn("refresh.token.value");
 
             // When
-            AuthResponse response = authService.login(validAuthRequest);
+            AuthResponse response = authService.login(validAuthRequest, deviceFingerprint);
 
             // Then
             assertThat(response.getToken()).isEqualTo("jwt.token.value");
+            assertThat(response.getRefreshToken()).isEqualTo("refresh.token.value");
             assertThat(response.getType()).isEqualTo("Bearer");
             assertThat(response.getUserId()).isEqualTo(1L);
             assertThat(response.getRoles()).contains("ROLE_STUDENT");
 
             verify(jwtService).generateToken(activePerson);
+            verify(refreshTokenService).createRefreshToken(eq(activePerson), eq(deviceFingerprint), isNull());
+        }
+
+        @Test
+        @DisplayName("Devrait transmettre le device fingerprint au RefreshTokenService")
+        void shouldPassDeviceFingerprintToRefreshTokenService() {
+            // Given
+            String customFingerprint = "custom-device-fingerprint";
+            when(personRepository.findByEmailWithProfileAndRoles(anyString()))
+                    .thenReturn(Optional.of(activePerson));
+            when(passwordEncoder.matches(anyString(), anyString())).thenReturn(true);
+            when(jwtService.generateToken(any())).thenReturn("token");
+            when(refreshTokenService.createRefreshToken(any(), anyString(), isNull()))
+                    .thenReturn("refresh");
+
+            // When
+            authService.login(validAuthRequest, customFingerprint);
+
+            // Then
+            verify(refreshTokenService).createRefreshToken(
+                    eq(activePerson),
+                    eq(customFingerprint),
+                    isNull()
+            );
         }
 
         @Test
@@ -136,11 +167,12 @@ class AuthServiceTest {
             AuthRequest request = new AuthRequest("inconnu@test.fr", "password123");
 
             // When & Then
-            assertThatThrownBy(() -> authService.login(request))
+            assertThatThrownBy(() -> authService.login(request, deviceFingerprint))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("Personne");
 
             verify(jwtService, never()).generateToken(any());
+            verify(refreshTokenService, never()).createRefreshToken(any(), anyString(), any());
         }
 
         @Test
@@ -154,11 +186,12 @@ class AuthServiceTest {
             AuthRequest request = new AuthRequest("test@test.fr", "mauvais_mdp");
 
             // When & Then
-            assertThatThrownBy(() -> authService.login(request))
+            assertThatThrownBy(() -> authService.login(request, deviceFingerprint))
                     .isInstanceOf(BadCredentialsException.class)
                     .hasMessageContaining("Email ou mot de passe incorrect");
 
             verify(jwtService, never()).generateToken(any());
+            verify(refreshTokenService, never()).createRefreshToken(any(), anyString(), any());
         }
 
         @Test
@@ -172,11 +205,12 @@ class AuthServiceTest {
             AuthRequest request = new AuthRequest("suspended@test.fr", "password123");
 
             // When & Then
-            assertThatThrownBy(() -> authService.login(request))
+            assertThatThrownBy(() -> authService.login(request, deviceFingerprint))
                     .isInstanceOf(DisabledException.class)
                     .hasMessageContaining("compte n'est pas accessible");
 
             verify(jwtService, never()).generateToken(any());
+            verify(refreshTokenService, never()).createRefreshToken(any(), anyString(), any());
         }
 
         @Test
@@ -203,10 +237,11 @@ class AuthServiceTest {
             AuthRequest request = new AuthRequest("pending@test.fr", "password123");
 
             // When & Then
-            assertThatThrownBy(() -> authService.login(request))
+            assertThatThrownBy(() -> authService.login(request, deviceFingerprint))
                     .isInstanceOf(DisabledException.class);
 
             verify(jwtService, never()).generateToken(any());
+            verify(refreshTokenService, never()).createRefreshToken(any(), anyString(), any());
         }
 
         @Test
@@ -228,14 +263,36 @@ class AuthServiceTest {
                     .thenReturn(Optional.of(multiRolePerson));
             when(passwordEncoder.matches(any(), any())).thenReturn(true);
             when(jwtService.generateToken(any())).thenReturn("jwt.token.value");
+            when(refreshTokenService.createRefreshToken(any(), anyString(), isNull()))
+                    .thenReturn("refresh.token");
 
             // When
-            AuthResponse response = authService.login(validAuthRequest);
+            AuthResponse response = authService.login(validAuthRequest, deviceFingerprint);
 
             // Then
             assertThat(response.getRoles())
                     .hasSize(2)
                     .contains("ROLE_STUDENT", "ROLE_DRIVER");
+        }
+
+        @Test
+        @DisplayName("Devrait mettre à jour lastLogin lors de la connexion")
+        void shouldUpdateLastLoginOnSuccessfulLogin() {
+            // Given
+            when(personRepository.findByEmailWithProfileAndRoles(anyString()))
+                    .thenReturn(Optional.of(activePerson));
+            when(passwordEncoder.matches(anyString(), anyString())).thenReturn(true);
+            when(jwtService.generateToken(any())).thenReturn("token");
+            when(refreshTokenService.createRefreshToken(any(), anyString(), isNull()))
+                    .thenReturn("refresh");
+
+            // When
+            authService.login(validAuthRequest, deviceFingerprint);
+
+            // Then
+            verify(personRepository).save(argThat(person ->
+                    person.getLastLogin() != null
+            ));
         }
     }
 
@@ -253,8 +310,8 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("Devrait créer un compte et retourner un token JWT")
-        void shouldCreateAccountAndReturnToken() {
+        @DisplayName("Devrait créer un compte et retourner des tokens")
+        void shouldCreateAccountAndReturnTokens() {
             // Given
             when(personService.createPerson(any(CreatePersonRequest.class))).thenReturn(mockPersonResponse);
 
@@ -270,17 +327,21 @@ class AuthServiceTest {
                     .thenReturn(Optional.of(newPerson));
             when(passwordEncoder.matches("Password123!", "hashed_password")).thenReturn(true);
             when(jwtService.generateToken(newPerson)).thenReturn("nouveau.jwt.token");
+            when(refreshTokenService.createRefreshToken(eq(newPerson), eq(deviceFingerprint), isNull()))
+                    .thenReturn("nouveau.refresh.token");
 
             // When
-            AuthResponse response = authService.register(validRegisterRequest);
+            AuthResponse response = authService.register(validRegisterRequest, deviceFingerprint);
 
             // Then
             assertThat(response.getToken()).isEqualTo("nouveau.jwt.token");
+            assertThat(response.getRefreshToken()).isEqualTo("nouveau.refresh.token");
             assertThat(response.getType()).isEqualTo("Bearer");
             assertThat(response.getUserId()).isEqualTo(10L);
 
             verify(personService).createPerson(validRegisterRequest);
             verify(personRepository).findByEmailWithProfileAndRoles("nouveau@test.fr");
+            verify(refreshTokenService).createRefreshToken(eq(newPerson), eq(deviceFingerprint), isNull());
         }
 
         @Test
@@ -291,18 +352,18 @@ class AuthServiceTest {
                     .when(personService).createPerson(any());
 
             // When & Then
-            assertThatThrownBy(() -> authService.register(validRegisterRequest))
+            assertThatThrownBy(() -> authService.register(validRegisterRequest, deviceFingerprint))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageContaining("Email déjà utilisé");
 
-            // Login ne doit jamais être appelé
             verify(personRepository, never()).findByEmailWithProfileAndRoles(any());
             verify(jwtService, never()).generateToken(any());
+            verify(refreshTokenService, never()).createRefreshToken(any(), anyString(), any());
         }
 
         @Test
-        @DisplayName("Devrait appeler login avec les mêmes credentials après register")
-        void shouldCallLoginWithSameCredentialsAfterRegister() {
+        @DisplayName("Devrait appeler login avec les mêmes credentials et fingerprint après register")
+        void shouldCallLoginWithSameCredentialsAndFingerprintAfterRegister() {
             // Given
             when(personService.createPerson(any(CreatePersonRequest.class))).thenReturn(mockPersonResponse);
 
@@ -310,13 +371,16 @@ class AuthServiceTest {
                     .thenReturn(Optional.of(activePerson));
             when(passwordEncoder.matches(eq("Password123!"), any())).thenReturn(true);
             when(jwtService.generateToken(any())).thenReturn("token");
+            when(refreshTokenService.createRefreshToken(any(), eq(deviceFingerprint), isNull()))
+                    .thenReturn("refresh");
 
             // When
-            authService.register(validRegisterRequest);
+            authService.register(validRegisterRequest, deviceFingerprint);
 
             // Then
             verify(personRepository).findByEmailWithProfileAndRoles("nouveau@test.fr");
             verify(passwordEncoder).matches(eq("Password123!"), any());
+            verify(refreshTokenService).createRefreshToken(any(), eq(deviceFingerprint), isNull());
         }
     }
 }

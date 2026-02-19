@@ -3,6 +3,7 @@ package com.cda.carpooling.security;
 import com.cda.carpooling.entity.Person;
 import com.cda.carpooling.entity.Role;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -16,10 +17,16 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * Service de gestion des JWT .
- * Utilise HS256 pour signer les tokens.
+ * Service de gestion des JWT.
+ * Utilise HS256 pour signer et vérifier les tokens.
+ *
+ * Structure du token :
+ * - Header : algo HS256
+ * - Payload : issuer, subject (userId), roles, iat, exp
+ * - Signature : HMAC-SHA256
  */
 @Service
+@Slf4j
 public class JwtService {
     private final Clock clock;
 
@@ -68,10 +75,21 @@ public class JwtService {
         );
 
         this.jwtDecoder = decoder;
+        log.info("JwtService initialisé : issuer='{}', expiration={}ms", issuer, expirationMs);
     }
 
     /**
-     * Génère un JWT pour une personne.
+     * Génère un JWT pour une personne authentifiée.
+     *
+     * Claims inclus :
+     * - iss : émetteur du token
+     * - sub : ID de l'utilisateur (subject)
+     * - iat : date d'émission
+     * - exp : date d'expiration
+     * - roles : liste des rôles de l'utilisateur
+     *
+     * @param person Utilisateur pour lequel générer le token
+     * @return Token JWT signé
      */
     public String generateToken(Person person) {
         Instant now = clock.instant();
@@ -90,13 +108,28 @@ public class JwtService {
                 .build();
 
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
-        return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+        String token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+
+        log.debug("Token généré pour userId={} avec rôles: {}", person.getId(), roles);
+
+        return token;
     }
 
     /**
      * Valide et décode un JWT.
+     *
+     * @param token Token JWT à valider
+     * @return JWT décodé avec claims
+     * @throws JwtException Si le token est invalide ou expiré
      */
     public Jwt validateToken(String token) {
-        return jwtDecoder.decode(token);
+        try {
+            Jwt jwt = jwtDecoder.decode(token);
+            log.debug("Token validé : userId={}", jwt.getSubject());
+            return jwt;
+        } catch (JwtException e) {
+            log.warn("Token invalide : {}", e.getMessage());
+            throw e;
+        }
     }
 }

@@ -36,8 +36,40 @@ services:
       - app-network
     restart: on-failure
 
+  zap:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    container_name: zap
+    depends_on:
+      - app
+    networks:
+      - app-network
+    volumes:
+      - ./zap-reports:/zap/wrk
+    command: >
+      zap-api-scan.py
+      -t http://app:8080/v3/api-docs
+      -f openapi
+      -r zap-report.html
+      -J zap-report.json
+      -l WARN
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonar-data:/opt/sonarqube/data
+      - sonar-logs:/opt/sonarqube/logs
+    networks:
+      - app-network
+
 volumes:
   postgres-data:
+  sonar-data:
+  sonar-logs:
 
 networks:
   app-network:

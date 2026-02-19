@@ -33,7 +33,6 @@ public class PhoneValidator implements ConstraintValidator<ValidPhone, String> {
             return !required;
         }
 
-        // Nettoyer le numéro (retirer espaces, tirets, points)
         String cleanPhone = phone.replaceAll("[\\s.-]", "");
 
         return PHONE_PATTERN.matcher(cleanPhone).matches();

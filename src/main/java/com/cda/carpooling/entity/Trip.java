@@ -37,6 +37,12 @@ public class Trip {
     @Column(name = "smoking_allowed", nullable = false)
     private boolean smokingAllowed = false;
 
+    @Column(name = "distance_km")
+    private Double distanceKm;
+
+    @Column(name = "duration_minutes")
+    private Integer durationMinutes;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
