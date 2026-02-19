@@ -6,6 +6,7 @@ import com.cda.carpooling.dto.response.CityResponse;
 import com.cda.carpooling.entity.City;
 import com.cda.carpooling.exception.DuplicateResourceException;
 import com.cda.carpooling.exception.ResourceNotFoundException;
+import com.cda.carpooling.integration.GeoApiService;
 import com.cda.carpooling.mapper.CityMapper;
 import com.cda.carpooling.repository.CityRepository;
 import lombok.RequiredArgsConstructor;

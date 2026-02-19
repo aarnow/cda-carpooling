@@ -6,6 +6,7 @@ import com.cda.carpooling.dto.response.AddressResponse;
 import com.cda.carpooling.entity.Address;
 import com.cda.carpooling.entity.City;
 import com.cda.carpooling.exception.ResourceNotFoundException;
+import com.cda.carpooling.integration.GeoApiService;
 import com.cda.carpooling.mapper.AddressMapper;
 import com.cda.carpooling.repository.AddressRepository;
 import com.cda.carpooling.repository.CityRepository;

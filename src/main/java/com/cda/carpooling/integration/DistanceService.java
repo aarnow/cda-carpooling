@@ -1,4 +1,4 @@
-package com.cda.carpooling.service;
+package com.cda.carpooling.integration;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;

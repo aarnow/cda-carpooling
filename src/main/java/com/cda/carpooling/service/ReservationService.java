@@ -50,6 +50,11 @@ public class ReservationService {
 
         Person person = findPersonOrThrow(personId);
 
+        if (person.getProfile() == null) {
+            log.warn("❌ Tentative de réservation par personne {} sans profil", personId);
+            throw new IllegalStateException("Vous devez compléter votre profil avant de réserver un trajet");
+        }
+
         return reservationRepository
                 .findByPersonIdAndTripId(personId, tripId)
                 .map(existing -> {

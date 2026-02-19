@@ -1,4 +1,4 @@
-package com.cda.carpooling.service;
+package com.cda.carpooling.integration;
 
 import com.cda.carpooling.dto.response.AddressResponse;
 import com.cda.carpooling.dto.response.CityResponse;

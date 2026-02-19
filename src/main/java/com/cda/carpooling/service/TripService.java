@@ -7,6 +7,8 @@ import com.cda.carpooling.dto.response.TripMinimalResponse;
 import com.cda.carpooling.dto.response.TripResponse;
 import com.cda.carpooling.entity.*;
 import com.cda.carpooling.exception.ResourceNotFoundException;
+import com.cda.carpooling.integration.DistanceService;
+import com.cda.carpooling.integration.EmailService;
 import com.cda.carpooling.mapper.TripMapper;
 import com.cda.carpooling.repository.*;
 import com.cda.carpooling.specification.TripSpecification;
@@ -30,9 +32,12 @@ public class TripService {
     private final TripRepository tripRepository;
     private final PersonRepository personRepository;
     private final TripStatusRepository tripStatusRepository;
+
     private final ReservationService reservationService;
     private final DistanceService distanceService;
     private final AddressService addressService;
+    private final EmailService emailService;
+
     private final TripMapper tripMapper;
 
     /**
@@ -114,6 +119,11 @@ public class TripService {
     public TripResponse createTrip(Long driverId, CreateTripRequest request) {
         Person driver = findPersonOrThrow(driverId);
 
+        if (driver.getProfile() == null) {
+            log.warn("Tentative de création de trajet par conducteur {} sans profil", driverId);
+            throw new IllegalStateException("Vous devez compléter votre profil avant de proposer un trajet");
+        }
+
         TripStatus plannedStatus = tripStatusRepository.findByLabel(TripStatus.PLANNED)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Statut", "label", TripStatus.PLANNED));
@@ -154,8 +164,6 @@ public class TripService {
 
     /**
      * Met à jour un trajet. Réservé au conducteur propriétaire ou à un admin.
-     * TODO : la moindre modification doit alerter les passagers par email
-     * TODO : TripStatus CANCELLED doit annuler les réservations + envoyer des emails (endpoint dédié ?)
      */
     @Transactional
     public TripResponse updateTrip(Long id, UpdateTripRequest request) {
@@ -166,7 +174,21 @@ public class TripService {
             trip.setTripDatetime(request.getTripDatetime());
         }
         if (request.getAvailableSeats() != null) {
-            trip.setAvailableSeats(request.getAvailableSeats());
+            long activeReservations = trip.getReservations().stream()
+                    .filter(r -> !r.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED))
+                    .count();
+
+            int newAvailableSeats = request.getAvailableSeats() - (int) activeReservations;
+
+            if (newAvailableSeats < 0) {
+                log.warn("Tentative de réduction places à {} alors que {} réservations actives (tripId={})",
+                        request.getAvailableSeats(), activeReservations, id);
+                throw new IllegalStateException(
+                        String.format("Impossible de réduire à %d places : %d réservations déjà confirmées. (Minimum requis : %d places)",
+                                request.getAvailableSeats(), activeReservations, activeReservations));
+            }
+
+            trip.setAvailableSeats(newAvailableSeats);
         }
         if (request.getSmokingAllowed() != null) {
             trip.setSmokingAllowed(request.getSmokingAllowed());
@@ -200,21 +222,32 @@ public class TripService {
         log.info("✅ Trajet mis à jour : id={}{}", id,
                 addressesChanged ? " (distance recalculée)" : "");
 
+        List<Person> passengers = updated.getReservations().stream()
+                .filter(r -> !r.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED))
+                .map(com.cda.carpooling.entity.Reservation::getPerson)
+                .toList();
+
+        emailService.sendTripUpdateNotification(updated, passengers);
+
         return tripMapper.toResponse(updated);
     }
 
     /**
      * Supprime un trajet.
      * Annule les réservations associées avant suppression.
-     * TODO : envoyer un email aux passagers impactés
      */
     @Transactional
     public void deleteTrip(Long id) {
         Trip trip = findTripOrThrow(id);
 
+        List<Person> passengers = trip.getReservations().stream()
+                .filter(r -> !r.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED))
+                .map(com.cda.carpooling.entity.Reservation::getPerson)
+                .toList();
+
         reservationService.cancelTripReservations(trip);
         tripRepository.delete(trip);
-
+        emailService.sendTripCancellationNotification(trip, passengers);
         log.warn("🗑Trajet {} supprimé", id);
     }
 

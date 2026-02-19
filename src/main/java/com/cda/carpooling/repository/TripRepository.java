@@ -26,6 +26,11 @@ public interface TripRepository extends JpaRepository<Trip, Long>, JpaSpecificat
             @Param("personId") Long personId);
 
     /**
+     * Récupère tous les trajets par statut.
+     */
+    List<Trip> findAllByTripStatusLabel(String statusLabel);
+
+    /**
      * Retourne tous les trajets d'un conducteur selon un statut donné.
      */
     List<Trip> findAllByDriverIdAndTripStatusLabel(Long driverId, String statusLabel);
