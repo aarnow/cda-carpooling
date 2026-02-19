@@ -3,10 +3,13 @@ package com.cda.carpooling.controller;
 import com.cda.carpooling.config.SecurityConfig;
 import com.cda.carpooling.dto.request.AuthRequest;
 import com.cda.carpooling.dto.request.CreatePersonRequest;
+import com.cda.carpooling.dto.request.RefreshRequest;
 import com.cda.carpooling.dto.response.AuthResponse;
 import com.cda.carpooling.exception.DuplicateResourceException;
 import com.cda.carpooling.security.AuthService;
 import com.cda.carpooling.security.JwtService;
+import com.cda.carpooling.security.RefreshTokenService;
+import com.cda.carpooling.entity.Person;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -22,7 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -43,6 +46,9 @@ class AuthControllerTest {
     private AuthService authService;
 
     @MockitoBean
+    private RefreshTokenService refreshTokenService;
+
+    @MockitoBean
     private JwtDecoder jwtDecoder;
 
     @MockitoBean
@@ -54,6 +60,7 @@ class AuthControllerTest {
     void setUp() {
         authResponse = AuthResponse.builder()
                 .token("jwt.token.value")
+                .refreshToken("refresh.token.value")
                 .type("Bearer")
                 .userId(1L)
                 .roles(new String[]{"ROLE_STUDENT"})
@@ -66,22 +73,46 @@ class AuthControllerTest {
     class LoginTests {
 
         @Test
-        @DisplayName("Devrait retourner 200 avec token si credentials valides")
-        void shouldReturn200WithTokenWhenCredentialsValid() throws Exception {
+        @DisplayName("Devrait retourner 200 avec token + refresh token si credentials valides")
+        void shouldReturn200WithTokensWhenCredentialsValid() throws Exception {
             // Given
             AuthRequest request = new AuthRequest("test@test.fr", "password123");
-            when(authService.login(any(AuthRequest.class))).thenReturn(authResponse);
+            when(authService.login(any(AuthRequest.class), anyString())).thenReturn(authResponse);
 
             // When & Then
             mockMvc.perform(post("/login")
                             .contentType(APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(request))
+                            .header("User-Agent", "Mozilla/5.0")
+                            .header("X-Forwarded-For", "192.168.1.1"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.token").value("jwt.token.value"))
+                    .andExpect(jsonPath("$.refreshToken").value("refresh.token.value"))
                     .andExpect(jsonPath("$.type").value("Bearer"))
                     .andExpect(jsonPath("$.userId").value(1));
 
-            verify(authService).login(any(AuthRequest.class));
+            verify(authService).login(any(AuthRequest.class), anyString());
+        }
+
+        @Test
+        @DisplayName("Devrait générer un device fingerprint à partir du User-Agent et IP")
+        void shouldGenerateDeviceFingerprintFromUserAgentAndIp() throws Exception {
+            // Given
+            AuthRequest request = new AuthRequest("test@test.fr", "password123");
+            when(authService.login(any(AuthRequest.class), anyString())).thenReturn(authResponse);
+
+            // When
+            mockMvc.perform(post("/login")
+                            .contentType(APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+                            .header("User-Agent", "Mozilla/5.0 Chrome")
+                            .header("X-Forwarded-For", "203.0.113.42"))
+                    .andExpect(status().isOk());
+
+            // Then
+            verify(authService).login(any(AuthRequest.class), argThat(fingerprint ->
+                    fingerprint != null && !fingerprint.isEmpty()
+            ));
         }
 
         @Test
@@ -89,31 +120,33 @@ class AuthControllerTest {
         void shouldReturn401WhenCredentialsInvalid() throws Exception {
             // Given
             AuthRequest request = new AuthRequest("test@test.fr", "mauvais_mdp");
-            when(authService.login(any())).thenThrow(
+            when(authService.login(any(), anyString())).thenThrow(
                     new BadCredentialsException("Email ou mot de passe incorrect")
             );
 
             // When & Then
             mockMvc.perform(post("/login")
                             .contentType(APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(request))
+                            .header("User-Agent", "Mozilla/5.0"))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.message").value(containsString("Email ou mot de passe incorrect")));
         }
 
         @Test
         @DisplayName("Devrait retourner 403 si le compte est désactivé")
-        void shouldReturn401WhenAccountDisabled() throws Exception {
+        void shouldReturn403WhenAccountDisabled() throws Exception {
             // Given
             AuthRequest request = new AuthRequest("suspended@test.fr", "password123");
-            when(authService.login(any())).thenThrow(
+            when(authService.login(any(), anyString())).thenThrow(
                     new DisabledException("Ce compte n'est pas accessible")
             );
 
             // When & Then
             mockMvc.perform(post("/login")
                             .contentType(APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(request))
+                            .header("User-Agent", "Mozilla/5.0"))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.message").value(containsString("compte n'est pas accessible")));
         }
@@ -123,14 +156,15 @@ class AuthControllerTest {
         void shouldReturn404WhenEmailUnknown() throws Exception {
             // Given
             AuthRequest request = new AuthRequest("inconnu@test.fr", "password123");
-            when(authService.login(any())).thenThrow(
+            when(authService.login(any(), anyString())).thenThrow(
                     new com.cda.carpooling.exception.ResourceNotFoundException("Personne", "email", "inconnu@test.fr")
             );
 
             // When & Then
             mockMvc.perform(post("/login")
                             .contentType(APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(request))
+                            .header("User-Agent", "Mozilla/5.0"))
                     .andExpect(status().isNotFound());
         }
 
@@ -143,10 +177,11 @@ class AuthControllerTest {
             // When & Then
             mockMvc.perform(post("/login")
                             .contentType(APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(request))
+                            .header("User-Agent", "Mozilla/5.0"))
                     .andExpect(status().isBadRequest());
 
-            verify(authService, never()).login(any());
+            verify(authService, never()).login(any(), anyString());
         }
 
         @Test
@@ -158,10 +193,11 @@ class AuthControllerTest {
             // When & Then
             mockMvc.perform(post("/login")
                             .contentType(APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(request))
+                            .header("User-Agent", "Mozilla/5.0"))
                     .andExpect(status().isBadRequest());
 
-            verify(authService, never()).login(any());
+            verify(authService, never()).login(any(), anyString());
         }
 
         @Test
@@ -173,10 +209,11 @@ class AuthControllerTest {
             // When & Then
             mockMvc.perform(post("/login")
                             .contentType(APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(request))
+                            .header("User-Agent", "Mozilla/5.0"))
                     .andExpect(status().isBadRequest());
 
-            verify(authService, never()).login(any());
+            verify(authService, never()).login(any(), anyString());
         }
 
         @Test
@@ -184,7 +221,8 @@ class AuthControllerTest {
         void shouldReturn400WhenBodyMissing() throws Exception {
             // When & Then
             mockMvc.perform(post("/login")
-                            .contentType(APPLICATION_JSON))
+                            .contentType(APPLICATION_JSON)
+                            .header("User-Agent", "Mozilla/5.0"))
                     .andExpect(status().isBadRequest());
         }
     }
@@ -200,18 +238,21 @@ class AuthControllerTest {
         void shouldReturn201WithTokenWhenRegisterSucceeds() throws Exception {
             // Given
             CreatePersonRequest request = new CreatePersonRequest("nouveau@test.fr", "Password123!");
-            when(authService.register(any(CreatePersonRequest.class))).thenReturn(authResponse);
+            when(authService.register(any(CreatePersonRequest.class), anyString())).thenReturn(authResponse);
 
             // When & Then
             mockMvc.perform(post("/register")
                             .contentType(APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(request))
+                            .header("User-Agent", "Mozilla/5.0")
+                            .header("X-Forwarded-For", "192.168.1.1"))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.token").value("jwt.token.value"))
+                    .andExpect(jsonPath("$.refreshToken").value("refresh.token.value"))
                     .andExpect(jsonPath("$.type").value("Bearer"))
                     .andExpect(jsonPath("$.userId").value(1));
 
-            verify(authService).register(any(CreatePersonRequest.class));
+            verify(authService).register(any(CreatePersonRequest.class), anyString());
         }
 
         @Test
@@ -219,14 +260,15 @@ class AuthControllerTest {
         void shouldReturn409WhenEmailAlreadyUsed() throws Exception {
             // Given
             CreatePersonRequest request = new CreatePersonRequest("nouveau@test.fr", "Password123!");
-            when(authService.register(any())).thenThrow(
+            when(authService.register(any(), anyString())).thenThrow(
                     new DuplicateResourceException("Cet email est déjà utilisé")
             );
 
             // When & Then
             mockMvc.perform(post("/register")
                             .contentType(APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(request))
+                            .header("User-Agent", "Mozilla/5.0"))
                     .andExpect(status().isConflict());
         }
 
@@ -239,10 +281,11 @@ class AuthControllerTest {
             // When & Then
             mockMvc.perform(post("/register")
                             .contentType(APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(request))
+                            .header("User-Agent", "Mozilla/5.0"))
                     .andExpect(status().isBadRequest());
 
-            verify(authService, never()).register(any());
+            verify(authService, never()).register(any(), anyString());
         }
 
         @Test
@@ -254,10 +297,99 @@ class AuthControllerTest {
             // When & Then
             mockMvc.perform(post("/register")
                             .contentType(APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(request))
+                            .header("User-Agent", "Mozilla/5.0"))
                     .andExpect(status().isBadRequest());
 
-            verify(authService, never()).register(any());
+            verify(authService, never()).register(any(), anyString());
+        }
+    }
+    //endregion
+
+    //region POST /refresh
+    @Nested
+    @DisplayName("POST /refresh")
+    class RefreshTests {
+
+        @Test
+        @DisplayName("Devrait retourner 200 avec nouveaux tokens si refresh token valide")
+        void shouldReturn200WithNewTokensWhenRefreshTokenValid() throws Exception {
+            // Given
+            RefreshRequest request = new RefreshRequest("valid.refresh.token");
+            Person mockPerson = Person.builder().id(1L).build();
+
+            when(refreshTokenService.validateAndConsumeRefreshToken(anyString())).thenReturn(mockPerson);
+            when(jwtService.generateToken(any())).thenReturn("new.access.token");
+            when(refreshTokenService.createRefreshToken(any(), anyString(), isNull())).thenReturn("new.refresh.token");
+
+            // When & Then
+            mockMvc.perform(post("/refresh")
+                            .contentType(APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+                            .header("User-Agent", "Mozilla/5.0")
+                            .header("X-Forwarded-For", "192.168.1.1"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.token").exists())
+                    .andExpect(jsonPath("$.refreshToken").exists());
+
+            verify(refreshTokenService).validateAndConsumeRefreshToken("valid.refresh.token");
+        }
+
+        @Test
+        @DisplayName("Devrait retourner 403 si ReUse détecté")
+        void shouldReturn403WhenReuseDetected() throws Exception {
+            // Given
+            RefreshRequest request = new RefreshRequest("reused.token");
+            when(refreshTokenService.validateAndConsumeRefreshToken(anyString()))
+                    .thenThrow(new SecurityException("Token déjà utilisé"));
+
+            // When & Then
+            mockMvc.perform(post("/refresh")
+                            .contentType(APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+                            .header("User-Agent", "Mozilla/5.0"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.error").value("token_reuse_detected"));
+        }
+
+        @Test
+        @DisplayName("Devrait retourner 401 si refresh token invalide")
+        void shouldReturn401WhenRefreshTokenInvalid() throws Exception {
+            // Given
+            RefreshRequest request = new RefreshRequest("invalid.token");
+            when(refreshTokenService.validateAndConsumeRefreshToken(anyString()))
+                    .thenThrow(new IllegalArgumentException("Refresh token invalide"));
+
+            // When & Then
+            mockMvc.perform(post("/refresh")
+                            .contentType(APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+                            .header("User-Agent", "Mozilla/5.0"))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.error").value("invalid_token"));
+        }
+    }
+    //endregion
+
+    //region POST /logout
+    @Nested
+    @DisplayName("POST /logout")
+    class LogoutTests {
+
+        @Test
+        @DisplayName("Devrait retourner 204 et révoquer le token")
+        void shouldReturn204AndRevokeToken() throws Exception {
+            // Given
+            RefreshRequest request = new RefreshRequest("token.to.revoke");
+            doNothing().when(refreshTokenService).revokeToken(anyString());
+
+            // When & Then
+            mockMvc.perform(post("/logout")
+                            .contentType(APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isNoContent());
+
+            verify(refreshTokenService).revokeToken("token.to.revoke");
         }
     }
     //endregion

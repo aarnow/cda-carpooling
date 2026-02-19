@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 
 /**
- * Service d'authentification (login, register).
+ * Service d'authentification.
  */
 @Service
 @RequiredArgsConstructor
@@ -29,18 +29,20 @@ public class AuthService {
     private final PersonRepository personRepository;
     private final PersonService personService;
     private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
     private final BCryptPasswordEncoder passwordEncoder;
 
     /**
-     * Authentifie un utilisateur et génère un token JWT.
+     * Authentifie un utilisateur et génère un access token + refresh token.
      *
-     * @param request Email et mot de passe de l'utilisateur
-     * @return Token JWT avec informations utilisateur
+     * @param request Email et mot de passe
+     * @param deviceFingerprint Hash unique du device
+     * @return AuthResponse avec tokens et infos utilisateur
      * @throws ResourceNotFoundException Si l'email n'existe pas
      * @throws BadCredentialsException Si le mot de passe est incorrect
      * @throws DisabledException Si le compte n'est pas actif
      */
-    public AuthResponse login(AuthRequest request) {
+    public AuthResponse login(AuthRequest request, String deviceFingerprint) {
         log.debug("Tentative de connexion pour : {}", request.getEmail());
 
         Person person = personRepository.findByEmailWithProfileAndRoles(request.getEmail())
@@ -60,7 +62,14 @@ public class AuthService {
             throw new DisabledException("Ce compte n'est pas accessible");
         }
 
-        String token = jwtService.generateToken(person);
+        // Générer les tokens
+        String accessToken = jwtService.generateToken(person);
+        String refreshToken = refreshTokenService.createRefreshToken(
+                person,
+                deviceFingerprint,
+                null
+        );
+
         String[] roles = person.getRoles().stream()
                 .map(Role::getLabel)
                 .toArray(String[]::new);
@@ -71,7 +80,8 @@ public class AuthService {
         log.info("Connexion réussie : {} (roles: {})", request.getEmail(), String.join(", ", roles));
 
         return AuthResponse.builder()
-                .token(token)
+                .token(accessToken)
+                .refreshToken(refreshToken)
                 .type("Bearer")
                 .userId(person.getId())
                 .roles(roles)
@@ -80,14 +90,15 @@ public class AuthService {
 
     /**
      * Inscrit un nouvel utilisateur et le connecte automatiquement.
-     *
-     * @param request Données d'inscription
-     * @return Token JWT avec informations utilisateur
      */
-    public AuthResponse register(CreatePersonRequest request) {
+    public AuthResponse register(CreatePersonRequest request, String deviceFingerprint) {
         log.info("Inscription d'un nouvel utilisateur : {}", request.getEmail());
         personService.createPerson(request);
+
         log.debug("Connexion automatique après inscription : {}", request.getEmail());
-        return login(new AuthRequest(request.getEmail(), request.getPassword()));
+        return login(
+                new AuthRequest(request.getEmail(), request.getPassword()),
+                deviceFingerprint
+        );
     }
 }
