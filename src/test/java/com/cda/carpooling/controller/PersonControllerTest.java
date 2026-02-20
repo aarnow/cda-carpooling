@@ -11,6 +11,7 @@ import com.cda.carpooling.exception.ResourceNotFoundException;
 import com.cda.carpooling.security.JwtService;
 import com.cda.carpooling.security.SecurityUtils;
 import com.cda.carpooling.service.PersonService;
+import com.cda.carpooling.service.TripService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -57,6 +58,9 @@ class PersonControllerTest {
 
     @MockitoBean
     private JwtService jwtService;
+
+    @MockitoBean
+    private TripService tripService;
 
     @Autowired
     private MockMvc mockMvc;

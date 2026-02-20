@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 
 /**
  * DTO pour la création d'un utilisateur.
- * Respecte le principe de validation complète avant traitement (fail-fast).
  */
 @Data
 @NoArgsConstructor

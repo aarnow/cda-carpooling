@@ -6,9 +6,6 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
-/**
- * Repository pour l'entité UserStatus.
- */
 @Repository
 public interface PersonStatusRepository extends JpaRepository<PersonStatus, Long> {
 

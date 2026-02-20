@@ -10,9 +10,6 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.Set;
 
-/**
- * DTO de réponse pour les utilisateurs.
- */
 @Data
 @Builder
 @NoArgsConstructor

@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    //region 400
+    //region ── 400 ─────────────────────────────────────────────────────────
     /**
      * Gère les erreurs de validation Jakarta (@Valid) - 400.
      */
@@ -220,7 +220,7 @@ public class GlobalExceptionHandler {
         String message = String.format(
                 "La méthode %s n'est pas supportée pour cet endpoint. Méthodes autorisées : %s",
                 ex.getMethod(),
-                String.join(", ", ex.getSupportedMethods() != null ? ex.getSupportedMethods() : new String[]{})
+                String.join(", ", ex.getSupportedMethods())
         );
 
         ErrorResponse errorResponse = ErrorResponse.builder()
@@ -301,7 +301,9 @@ public class GlobalExceptionHandler {
 
         return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
     }
+    //endregion
 
+    //region ── 500 ─────────────────────────────────────────────────────────
     /**
      * Gère les autres erreurs d'accès aux données - 500.
      */
@@ -320,9 +322,7 @@ public class GlobalExceptionHandler {
 
         return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    //endregion
 
-    //region 500
     /**
      * Gère toutes les exceptions non gérées - 500.
      */

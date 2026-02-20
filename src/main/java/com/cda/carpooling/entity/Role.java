@@ -14,7 +14,7 @@ import java.util.Set;
 @AllArgsConstructor
 @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(exclude = "users")
+@ToString(exclude = "persons")
 public class Role {
 
     public static final String ROLE_STUDENT = "ROLE_STUDENT";
@@ -35,5 +35,5 @@ public class Role {
 
     @ManyToMany(mappedBy = "roles")
     @Builder.Default
-    private Set<Person> people = new HashSet<>();
+    private Set<Person> persons = new HashSet<>();
 }

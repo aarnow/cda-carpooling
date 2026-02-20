@@ -10,9 +10,6 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-/**
- * DTO pour le profil utilisateur.
- */
 @Data
 @Builder
 @NoArgsConstructor
