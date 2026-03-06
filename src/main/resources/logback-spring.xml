@@ -41,8 +41,6 @@
         </encoder>
     </appender>
 
-    <!-- ========== ICI : Configuration par profil ========== -->
-
     <!-- Profil DEV : logs verbeux + fichiers locaux -->
     <springProfile name="dev">
         <root level="DEBUG">

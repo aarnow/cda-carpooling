@@ -7,6 +7,7 @@ import com.cda.carpooling.dto.response.TripMinimalResponse;
 import com.cda.carpooling.dto.response.TripResponse;
 import com.cda.carpooling.entity.*;
 import com.cda.carpooling.exception.ResourceNotFoundException;
+import com.cda.carpooling.exception.business.ProfileIncompleteException;
 import com.cda.carpooling.integration.DistanceService;
 import com.cda.carpooling.integration.EmailService;
 import com.cda.carpooling.mapper.TripMapper;
@@ -121,7 +122,7 @@ public class TripService {
 
         if (driver.getProfile() == null) {
             log.warn("Tentative de création de trajet par conducteur {} sans profil", driverId);
-            throw new IllegalStateException("Vous devez compléter votre profil avant de proposer un trajet");
+            throw new ProfileIncompleteException("Vous devez compléter votre profil avant de proposer un trajet");
         }
 
         TripStatus plannedStatus = tripStatusRepository.findByLabel(TripStatus.PLANNED)
