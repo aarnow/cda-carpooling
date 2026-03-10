@@ -41,7 +41,7 @@ public class TripController {
      * Accessible à tous les utilisateurs authentifiés.
      */
     @GetMapping
-    public ResponseEntity<List<TripMinimalResponse>> getAllTrips(
+    public ResponseEntity<List<TripResponse>> getAllTrips(
             @RequestParam(required = false) LocalDate tripDate,
             @RequestParam(required = false) String startingCity,
             @RequestParam(required = false) String arrivalCity) {

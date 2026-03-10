@@ -41,10 +41,6 @@ public class ReservationMapper {
                 .createdAt(reservation.getCreatedAt())
                 .updatedAt(reservation.getUpdatedAt())
                 .passenger(personMapper.toMinimalResponse(reservation.getPerson()))
-                .tripId(reservation.getTrip().getId())
-                .tripDatetime(reservation.getTrip().getTripDatetime())
-                .departureCityName(reservation.getTrip().getDepartureAddress().getCity().getName())
-                .arrivingCityName(reservation.getTrip().getArrivingAddress().getCity().getName())
                 .build();
     }
 }

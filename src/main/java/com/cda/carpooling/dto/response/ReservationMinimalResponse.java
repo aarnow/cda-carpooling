@@ -20,10 +20,4 @@ public class ReservationMinimalResponse {
 
     // Personne
     private PersonMinimalResponse passenger;
-
-    // Trajet
-    private Long tripId;
-    private LocalDateTime tripDatetime;
-    private String departureCityName;
-    private String arrivingCityName;
 }

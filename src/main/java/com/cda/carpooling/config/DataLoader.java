@@ -11,6 +11,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -21,7 +22,6 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-@SuppressWarnings("java:S2068") // Fixtures only - passwords are test data
 public class DataLoader {
 
     private final PersonStatusRepository personStatusRepository;
@@ -261,7 +261,7 @@ public class DataLoader {
     }
 
     /**
-     * Crée un utilisateur conducteur avec les rôles STUDENT et DRIVER.
+     * Crée un utilisateur conducteur avec les rôles STUDENT et DRIVER + profil complet.
      */
     private void createDriverPerson(PersonStatus activeStatus) {
         Role studentRole = roleRepository.findByLabel(Role.ROLE_STUDENT)
@@ -276,11 +276,21 @@ public class DataLoader {
                 .createdAt(LocalDateTime.now())
                 .build();
 
+        PersonProfile driverProfile = PersonProfile.builder()
+                .person(driver)
+                .lastname("Martin")
+                .firstname("Jean")
+                .birthday(LocalDate.of(1990, 5, 15))
+                .phone("0698765432")
+                .build();
+
+        driver.setProfile(driverProfile);
         driver.getRoles().add(studentRole);
         driver.getRoles().add(driverRole);
+
         personRepository.save(driver);
 
-        log.info("Driver person: driver@test.fr / Driver@123");
+        log.info("✅ Driver person: driver@test.fr / Driver@123 (with profile)");
     }
     //endregion
 
