@@ -113,7 +113,7 @@ L'interface est disponible à `http://localhost:9000` (identifiants par défaut 
 **Sur Windows :**
 
 ```bash
-.\mvnw.cmd clean verify sonar:sonar "-Dsonar.projectKey=carpooling-api" "-Dsonar.projectName=carpooling-api" "-Dsonar.host.url=http://localhost:9000" "-Dsonar.token=VOTRE_TOKEN"
+.\mvnw.cmd clean verify sonar:sonar "-Dsonar.projectKey=carpooling-api" "-Dsonar.projectName=carpooling-api" "-Dsonar.host.url=http://localhost:9000" "-Dsonar.token=sqp_2d1bb5314b8e57e7b414ee63aac0a93f3a96b283"
 ```
 
 **Sur Mac/Linux :**

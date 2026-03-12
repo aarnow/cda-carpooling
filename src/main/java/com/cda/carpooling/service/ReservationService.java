@@ -3,6 +3,9 @@ package com.cda.carpooling.service;
 import com.cda.carpooling.dto.response.ReservationResponse;
 import com.cda.carpooling.entity.*;
 import com.cda.carpooling.exception.ResourceNotFoundException;
+import com.cda.carpooling.exception.business.NoSeatsAvailableException;
+import com.cda.carpooling.exception.business.ProfileIncompleteException;
+import com.cda.carpooling.exception.business.TripNotAvailableException;
 import com.cda.carpooling.mapper.ReservationMapper;
 import com.cda.carpooling.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -41,36 +44,34 @@ public class ReservationService {
 
         if (trip.getTripStatus().getLabel().equals(TripStatus.CANCELLED)) {
             log.warn("Tentative de réservation sur trajet annulé : tripId={}", tripId);
-            throw new IllegalStateException("Impossible de réserver sur un trajet annulé");
+            throw new TripNotAvailableException("Impossible de réserver sur un trajet annulé");
         }
         if (trip.getTripStatus().getLabel().equals(TripStatus.COMPLETED)) {
             log.warn("Tentative de réservation sur trajet terminé : tripId={}", tripId);
-            throw new IllegalStateException("Impossible de réserver sur un trajet terminé");
+            throw new TripNotAvailableException("Impossible de réserver sur un trajet terminé");
         }
 
         Person person = findPersonOrThrow(personId);
 
         if (person.getProfile() == null) {
-            log.warn("❌ Tentative de réservation par personne {} sans profil", personId);
-            throw new IllegalStateException("Vous devez compléter votre profil avant de réserver un trajet");
+            log.warn("Tentative de réservation par personne {} sans profil", personId);
+            throw new ProfileIncompleteException("Vous devez compléter votre profil avant de réserver un trajet");
         }
 
         return reservationRepository
                 .findByPersonIdAndTripId(personId, tripId)
                 .map(existing -> {
                     if (existing.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED)) {
-                        log.info("Réactivation réservation {} (personId={}, tripId={})",
-                                existing.getId(), personId, tripId);
-                        return createReservation(trip, person);
+                        log.info("Réactivation réservation {} (personId={}, tripId={})", existing.getId(), personId, tripId);
+                        return createOrReactivateReservation(trip, person, existing);
                     } else {
-                        log.info("Annulation réservation {} (personId={}, tripId={})",
-                                existing.getId(), personId, tripId);
+                        log.info("Annulation réservation {} (personId={}, tripId={})", existing.getId(), personId, tripId);
                         return cancelReservation(existing, trip);
                     }
                 })
                 .orElseGet(() -> {
-                    log.info("➕ Nouvelle réservation (personId={}, tripId={})", personId, tripId);
-                    return createReservation(trip, person);
+                    log.info("Nouvelle réservation (personId={}, tripId={})", personId, tripId);
+                    return createOrReactivateReservation(trip, person, null);
                 });
     }
 
@@ -114,38 +115,61 @@ public class ReservationService {
 
     //region Utils
     /**
-     * Crée une nouvelle réservation CONFIRMED et décrémente les places disponibles.
+     * Crée ou réactive une réservation et décrémente les places disponibles.
+     *
+     * @param trip Trajet concerné
+     * @param person Personne qui réserve
+     * @param existingReservation Réservation existante à réactiver (null si nouvelle réservation)
+     * @return ReservationResponse
      */
-    private ReservationResponse createReservation(Trip trip, Person person) {
+    private ReservationResponse createOrReactivateReservation(
+            Trip trip,
+            Person person,
+            Reservation existingReservation) {
+
+        // Vérifier les places disponibles
         if (trip.getAvailableSeats() <= 0) {
             log.warn("Plus de places disponibles : tripId={}", trip.getId());
-            throw new IllegalStateException("Ce trajet n'a plus de places disponibles");
+            throw new NoSeatsAvailableException("Ce trajet n'a plus de places disponibles");
         }
 
+        // Vérifier que ce n'est pas le conducteur
         if (trip.getDriver().getId().equals(person.getId())) {
-            log.warn("Conducteur tente de réserver son propre trajet : personId={}, tripId={}",
-                    person.getId(), trip.getId());
-            throw new AccessDeniedException("Un conducteur ne peut pas réserver son propre trajet");
+            log.warn("Conducteur tente de réserver son propre trajet : personId={}, tripId={}", person.getId(), trip.getId());
+            throw new IllegalStateException("Un conducteur ne peut pas réserver son propre trajet");
         }
 
+        // Récupérer le statut CONFIRMED
         ReservationStatus confirmedStatus = reservationStatusRepository
                 .findByLabel(ReservationStatus.CONFIRMED)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Statut", "label", ReservationStatus.CONFIRMED));
 
+        Reservation reservation;
+
+        if (existingReservation != null) {
+            existingReservation.setReservationStatus(confirmedStatus);
+            reservation = reservationRepository.save(existingReservation);
+            log.info("🔄 Réservation réactivée : id={}, personId={}, tripId={}",
+                    reservation.getId(), person.getId(), trip.getId());
+        } else {
+            reservation = Reservation.builder()
+                    .trip(trip)
+                    .person(person)
+                    .reservationStatus(confirmedStatus)
+                    .build();
+            reservation = reservationRepository.save(reservation);
+            log.info("Réservation créée : id={}, personId={}, tripId={}",
+                    reservation.getId(), person.getId(), trip.getId());
+        }
+
+        // Décrémenter les places disponibles
         trip.setAvailableSeats(trip.getAvailableSeats() - 1);
         tripRepository.save(trip);
 
-        Reservation reservation = Reservation.builder()
-                .trip(trip)
-                .person(person)
-                .reservationStatus(confirmedStatus)
-                .build();
+        log.info("Places restantes : {} (tripId={})", trip.getAvailableSeats(), trip.getId());
 
-        Reservation saved = reservationRepository.save(reservation);
-        log.info("Réservation créée : id={}, personId={}, tripId={} ({} places restantes)",
-                saved.getId(), person.getId(), trip.getId(), trip.getAvailableSeats());
-        return reservationMapper.toResponse(saved);
+        return reservationMapper.toResponse(reservation);
     }
 
     /**

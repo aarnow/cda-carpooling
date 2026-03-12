@@ -41,12 +41,13 @@ public class TripController {
      * Accessible à tous les utilisateurs authentifiés.
      */
     @GetMapping
-    public ResponseEntity<List<TripMinimalResponse>> getAllTrips(
+    public ResponseEntity<List<TripResponse>> getAllTrips(
             @RequestParam(required = false) LocalDate tripDate,
             @RequestParam(required = false) String startingCity,
-            @RequestParam(required = false) String arrivalCity) {
+            @RequestParam(required = false) String arrivalCity,
+            @RequestParam(required = false) Boolean isUpcoming) {
         log.debug("Recherche trajets : date={}, départ={}, arrivée={}", tripDate, startingCity, arrivalCity);
-        return ResponseEntity.ok(tripService.getAllTrips(tripDate, startingCity, arrivalCity));
+        return ResponseEntity.ok(tripService.getAllTrips(tripDate, startingCity, arrivalCity, isUpcoming));
     }
 
     /**

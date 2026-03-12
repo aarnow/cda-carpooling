@@ -29,15 +29,18 @@ public class EmailService {
     private final MailjetClient mailjetClient;
     private final String fromEmail;
     private final String fromName;
+    private final String frontendUrl;
 
     public EmailService(
             @Value("${mailjet.api-key}") String apiKey,
             @Value("${mailjet.secret-key}") String secretKey,
             @Value("${mailjet.from-email}") String fromEmail,
-            @Value("${mailjet.from-name}") String fromName) {
+            @Value("${mailjet.from-name}") String fromName,
+            @Value("${app.frontend.url:http://localhost:3000}") String frontendUrl) {
 
         this.fromEmail = fromEmail;
         this.fromName = fromName;
+        this.frontendUrl = frontendUrl;
 
         ClientOptions options = ClientOptions.builder()
                 .apiKey(apiKey)
@@ -117,6 +120,30 @@ public class EmailService {
                 log.error("Erreur envoi email à {} : {}", passenger.getEmail(), e.getMessage());
             }
         });
+    }
+
+    /**
+     * Envoie un email de réinitialisation de mot de passe.
+     *
+     * @param person Personne qui a demandé la réinitialisation
+     * @param resetToken Token de réinitialisation (en clair, non hashé)
+     * @param validityMinutes Durée de validité du token en minutes
+     */
+    @Async
+    public void sendPasswordResetEmail(Person person, String resetToken, int validityMinutes) {
+        log.info("📧 Envoi email de réinitialisation à {}", person.getEmail());
+
+        try {
+            sendEmail(
+                    person.getEmail(),
+                    "Réinitialisation de votre mot de passe",
+                    buildPasswordResetTemplate(person, resetToken, validityMinutes)
+            );
+            log.debug("✅ Email de réinitialisation envoyé à {}", person.getEmail());
+        } catch (Exception e) {
+            log.error("❌ Erreur envoi email de réinitialisation à {} : {}",
+                    person.getEmail(), e.getMessage());
+        }
     }
 
     /**
@@ -258,6 +285,103 @@ public class EmailService {
                 formatAddress(trip.getDepartureAddress()),
                 formatAddress(trip.getArrivingAddress()),
                 trip.getTripDatetime().format(dateFormatter)
+        );
+    }
+
+    /**
+     * Template HTML pour email de réinitialisation de mot de passe.
+     */
+    private String buildPasswordResetTemplate(Person person, String resetToken, int validityMinutes) {
+        String resetUrl = String.format("%s/auth/reset-password?token=%s",
+                this.frontendUrl,
+                resetToken);
+
+        String greeting = (person.getProfile() != null && person.getProfile().getFirstname() != null)
+                ? person.getProfile().getFirstname()
+                : person.getEmail();
+
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: #2196F3; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+                .button-container { text-align: center; margin: 30px 0; }
+                .reset-button {
+                    display: inline-block;
+                    padding: 15px 30px;
+                    background: #2196F3;
+                    color: white !important;
+                    text-decoration: none;
+                    border-radius: 5px;
+                    font-weight: bold;
+                }
+                .warning-box {
+                    background: #fff3cd;
+                    border-left: 4px solid #ffc107;
+                    padding: 15px;
+                    margin: 20px 0;
+                }
+                .danger-box {
+                    background: #ffebee;
+                    border-left: 4px solid #f44336;
+                    padding: 15px;
+                    margin: 20px 0;
+                }
+                .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; }
+                .expiry { color: #f44336; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🔐 Réinitialisation de mot de passe</h1>
+                </div>
+                <div class="content">
+                    <p>Bonjour <strong>%s</strong>,</p>
+                    
+                    <p>Vous avez demandé à réinitialiser votre mot de passe sur Carpooling.</p>
+                    
+                    <div class="button-container">
+                        <a href="%s" class="reset-button">Réinitialiser mon mot de passe</a>
+                    </div>
+                    
+                    <div class="warning-box">
+                        <p><strong>⏱️ Ce lien est valide pendant <span class="expiry">%d minutes</span></strong></p>
+                    </div>
+                    
+                    <div class="danger-box">
+                        <p><strong>⚠️ Si vous n'avez pas demandé cette réinitialisation :</strong></p>
+                        <ul>
+                            <li>Ignorez simplement cet email</li>
+                            <li>Votre mot de passe actuel reste inchangé</li>
+                            <li>Le lien expirera automatiquement dans %d minutes</li>
+                        </ul>
+                    </div>
+                    
+                    <p style="margin-top: 30px; color: #666; font-size: 14px;">
+                        Si le bouton ne fonctionne pas, copiez-collez ce lien dans votre navigateur :<br>
+                        <a href="%s" style="color: #2196F3; word-break: break-all;">%s</a>
+                    </p>
+                </div>
+                <div class="footer">
+                    <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+                    <p>© 2026 Carpooling - Tous droits réservés</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """.formatted(
+                greeting,
+                resetUrl,
+                validityMinutes,
+                validityMinutes,
+                resetUrl,
+                resetUrl
         );
     }
 

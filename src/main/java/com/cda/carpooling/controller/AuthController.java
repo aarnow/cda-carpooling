@@ -1,14 +1,14 @@
 package com.cda.carpooling.controller;
 
-import com.cda.carpooling.dto.request.CreatePersonRequest;
-import com.cda.carpooling.dto.request.AuthRequest;
-import com.cda.carpooling.dto.request.RefreshRequest;
+import com.cda.carpooling.dto.request.*;
 import com.cda.carpooling.dto.response.AuthResponse;
+import com.cda.carpooling.dto.response.MessageResponse;
 import com.cda.carpooling.entity.Person;
 import com.cda.carpooling.entity.Role;
 import com.cda.carpooling.security.AuthService;
 import com.cda.carpooling.security.JwtService;
 import com.cda.carpooling.security.RefreshTokenService;
+import com.cda.carpooling.service.PasswordResetService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +33,7 @@ public class AuthController {
     private final AuthService authService;
     private final RefreshTokenService refreshTokenService;
     private final JwtService jwtService;
+    private final PasswordResetService passwordResetService;
 
     /**
      * POST /login
@@ -150,6 +151,43 @@ public class AuthController {
 
         log.info("Tous les refresh tokens révoqués pour userId={}", userId);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * POST /auth/forgot-password
+     * Initie le processus de réinitialisation de mot de passe.
+     * Envoie un email si le compte existe.
+     * Retourne toujours 200 pour ne pas révéler si l'email existe.
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<MessageResponse> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+
+        log.info("📧 Demande de réinitialisation pour : {}", request.getEmail());
+
+        passwordResetService.initiateForgotPassword(request.getEmail());
+
+        return ResponseEntity.ok(new MessageResponse(
+                "Si un compte existe avec cet email, vous recevrez un lien de réinitialisation."
+        ));
+    }
+
+    /**
+     * POST /auth/reset-password
+     * Valide le token et change le mot de passe.
+     * Révoque tous les refresh tokens de l'utilisateur.
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<MessageResponse> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+
+        log.info("🔐 Tentative de réinitialisation de mot de passe");
+
+        passwordResetService.resetPassword(request.getToken(), request.getNewPassword());
+
+        return ResponseEntity.ok(new MessageResponse(
+                "Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter."
+        ));
     }
 
     /**

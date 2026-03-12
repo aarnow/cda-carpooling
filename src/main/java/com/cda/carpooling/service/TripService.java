@@ -7,6 +7,7 @@ import com.cda.carpooling.dto.response.TripMinimalResponse;
 import com.cda.carpooling.dto.response.TripResponse;
 import com.cda.carpooling.entity.*;
 import com.cda.carpooling.exception.ResourceNotFoundException;
+import com.cda.carpooling.exception.business.ProfileIncompleteException;
 import com.cda.carpooling.integration.DistanceService;
 import com.cda.carpooling.integration.EmailService;
 import com.cda.carpooling.mapper.TripMapper;
@@ -46,13 +47,15 @@ public class TripService {
      * @param tripDate Date du trajet (filtre par jour)
      * @param startingCity Nom de la ville de départ
      * @param arrivalCity Nom de la ville d'arrivée
+     * @param isUpcoming Si true, ne retourne que les trajets futurs
      * @return Liste de TripMinimalResponse
      */
     @Transactional(readOnly = true)
-    public List<TripMinimalResponse> getAllTrips(
+    public List<TripResponse> getAllTrips(
             LocalDate tripDate,
             String startingCity,
-            String arrivalCity) {
+            String arrivalCity,
+            Boolean isUpcoming) {
 
         log.debug("Recherche trajets : date={}, départ={}, arrivée={}",
                 tripDate, startingCity, arrivalCity);
@@ -60,11 +63,12 @@ public class TripService {
         Specification<Trip> spec = Specification
                 .where(TripSpecification.hasDate(tripDate))
                 .and(TripSpecification.hasDepartureCity(startingCity))
-                .and(TripSpecification.hasArrivingCity(arrivalCity));
+                .and(TripSpecification.hasArrivingCity(arrivalCity))
+                .and(TripSpecification.isUpcoming(isUpcoming));
 
-        List<TripMinimalResponse> results = tripRepository.findAll(spec)
+        List<TripResponse> results = tripRepository.findAll(spec)
                 .stream()
-                .map(tripMapper::toMinimalResponse)
+                .map(tripMapper::toResponse)
                 .toList();
 
         log.debug("{} trajets trouvés", results.size());
@@ -121,7 +125,7 @@ public class TripService {
 
         if (driver.getProfile() == null) {
             log.warn("Tentative de création de trajet par conducteur {} sans profil", driverId);
-            throw new IllegalStateException("Vous devez compléter votre profil avant de proposer un trajet");
+            throw new ProfileIncompleteException("Vous devez compléter votre profil avant de proposer un trajet");
         }
 
         TripStatus plannedStatus = tripStatusRepository.findByLabel(TripStatus.PLANNED)

@@ -1,5 +1,9 @@
 package com.cda.carpooling.exception;
 
+import com.cda.carpooling.exception.business.InvalidTokenException;
+import com.cda.carpooling.exception.business.NoSeatsAvailableException;
+import com.cda.carpooling.exception.business.ProfileIncompleteException;
+import com.cda.carpooling.exception.business.TripNotAvailableException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -58,6 +62,25 @@ public class GlobalExceptionHandler {
                 .message(message)
                 .instance(request.getDescription(false).replace("uri=", ""))
                 .validationErrors(errors)
+                .build();
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Gère les tokens invalides - 400.
+     */
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidToken(
+            InvalidTokenException ex,
+            WebRequest request) {
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Token invalide")
+                .message(ex.getMessage())
+                .instance(request.getDescription(false).replace("uri=", ""))
                 .build();
 
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
@@ -172,6 +195,26 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Gère les profils incomplets - 403.
+     * L'utilisateur n'a pas complété les prérequis pour effectuer cette action.
+     */
+    @ExceptionHandler(ProfileIncompleteException.class)
+    public ResponseEntity<ErrorResponse> handleProfileIncomplete(
+            ProfileIncompleteException ex,
+            WebRequest request) {
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.FORBIDDEN.value())
+                .error("Profil incomplet")
+                .message(ex.getMessage())
+                .instance(request.getDescription(false).replace("uri=", ""))
+                .build();
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
+    }
+
+    /**
      * Gère les ressources non trouvées - 404.
      */
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -246,6 +289,46 @@ public class GlobalExceptionHandler {
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.CONFLICT.value())
                 .error("Ressource en doublon")
+                .message(ex.getMessage())
+                .instance(request.getDescription(false).replace("uri=", ""))
+                .build();
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
+    }
+
+    /**
+     * Gère les trajets non disponibles - 409.
+     * Le trajet existe mais son état ne permet pas la réservation.
+     */
+    @ExceptionHandler(TripNotAvailableException.class)
+    public ResponseEntity<ErrorResponse> handleTripNotAvailable(
+            TripNotAvailableException ex,
+            WebRequest request) {
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error("Trajet non disponible")
+                .message(ex.getMessage())
+                .instance(request.getDescription(false).replace("uri=", ""))
+                .build();
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
+    }
+
+    /**
+     * Gère l'absence de places disponibles - 409.
+     * Ressource épuisée (toutes les places sont prises).
+     */
+    @ExceptionHandler(NoSeatsAvailableException.class)
+    public ResponseEntity<ErrorResponse> handleNoSeatsAvailable(
+            NoSeatsAvailableException ex,
+            WebRequest request) {
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error("Plus de places disponibles")
                 .message(ex.getMessage())
                 .instance(request.getDescription(false).replace("uri=", ""))
                 .build();
