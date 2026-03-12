@@ -1,5 +1,6 @@
 package com.cda.carpooling.exception;
 
+import com.cda.carpooling.exception.business.InvalidTokenException;
 import com.cda.carpooling.exception.business.NoSeatsAvailableException;
 import com.cda.carpooling.exception.business.ProfileIncompleteException;
 import com.cda.carpooling.exception.business.TripNotAvailableException;
@@ -61,6 +62,25 @@ public class GlobalExceptionHandler {
                 .message(message)
                 .instance(request.getDescription(false).replace("uri=", ""))
                 .validationErrors(errors)
+                .build();
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Gère les tokens invalides - 400.
+     */
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidToken(
+            InvalidTokenException ex,
+            WebRequest request) {
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Token invalide")
+                .message(ex.getMessage())
+                .instance(request.getDescription(false).replace("uri=", ""))
                 .build();
 
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
