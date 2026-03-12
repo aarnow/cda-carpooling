@@ -385,8 +385,10 @@ public class DataLoader {
     }
 
     /**
-     * Crée un trajet Séné → Vannes proposé par le conducteur.
-     * Départ dans 7 jours à 8h30, 3 places disponibles.
+     * Crée 3 trajets de test avec différents statuts :
+     * 1. Trajet futur PLANNED avec réservations
+     * 2. Trajet passé COMPLETED
+     * 3. Trajet CANCELLED
      */
     private void initTrips() {
         if (tripRepository.count() > 0) {
@@ -399,9 +401,6 @@ public class DataLoader {
         Person driver = personRepository.findByEmail("driver@test.fr")
                 .orElseThrow(() -> new IllegalStateException("Driver not found"));
 
-        TripStatus plannedStatus = tripStatusRepository.findByLabel(TripStatus.PLANNED)
-                .orElseThrow(() -> new IllegalStateException("PLANNED status not found"));
-
         Address departure = addressRepository.findAll().stream()
                 .filter(a -> a.getCity().getName().equals("Séné"))
                 .findFirst()
@@ -412,23 +411,70 @@ public class DataLoader {
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("Vannes address not found"));
 
-        Trip trip = Trip.builder()
+        // 1️⃣ Trajet futur PLANNED (dans 7 jours) - avec réservations
+        TripStatus plannedStatus = tripStatusRepository.findByLabel(TripStatus.PLANNED)
+                .orElseThrow(() -> new IllegalStateException("PLANNED status not found"));
+
+        Trip plannedTrip = Trip.builder()
                 .driver(driver)
-                .tripDatetime(LocalDateTime.now().plusDays(7).withHour(8).withMinute(30).withSecond(0))
+                .tripDatetime(LocalDateTime.now().plusDays(7).withHour(8).withMinute(30).withSecond(0).withNano(0))
                 .availableSeats(3)
                 .smokingAllowed(false)
                 .tripStatus(plannedStatus)
                 .departureAddress(departure)
                 .arrivingAddress(arriving)
+                .distanceKm(8.4)
+                .durationMinutes(13)
                 .build();
 
-        tripRepository.save(trip);
-        log.info("✅ Trip created");
+        tripRepository.save(plannedTrip);
+        log.info("✅ Planned trip created (in 7 days)");
+
+        // 2️⃣ Trajet passé COMPLETED (il y a 3 jours)
+        TripStatus completedStatus = tripStatusRepository.findByLabel(TripStatus.COMPLETED)
+                .orElseThrow(() -> new IllegalStateException("COMPLETED status not found"));
+
+        Trip completedTrip = Trip.builder()
+                .driver(driver)
+                .tripDatetime(LocalDateTime.now().minusDays(3).withHour(14).withMinute(0).withSecond(0).withNano(0))
+                .availableSeats(0)  // Plus de places (toutes prises)
+                .smokingAllowed(false)
+                .tripStatus(completedStatus)
+                .departureAddress(arriving)  // Inverse : Vannes → Séné
+                .arrivingAddress(departure)
+                .distanceKm(8.2)
+                .durationMinutes(15)
+                .build();
+
+        tripRepository.save(completedTrip);
+        log.info("✅ Completed trip created (3 days ago)");
+
+        TripStatus cancelledStatus = tripStatusRepository.findByLabel(TripStatus.CANCELLED)
+                .orElseThrow(() -> new IllegalStateException("CANCELLED status not found"));
+
+        Trip cancelledTrip = Trip.builder()
+                .driver(driver)
+                .tripDatetime(LocalDateTime.now().plusDays(1).withHour(18).withMinute(0).withSecond(0).withNano(0))
+                .availableSeats(4)
+                .smokingAllowed(true)
+                .tripStatus(cancelledStatus)
+                .departureAddress(departure)
+                .arrivingAddress(arriving)
+                .distanceKm(8.4)
+                .durationMinutes(13)
+                .build();
+
+        tripRepository.save(cancelledTrip);
+        log.info("✅ Cancelled trip created (was tomorrow)");
+
+        log.info("✅ 3 trips created (PLANNED, COMPLETED, CANCELLED)");
     }
 
     /**
-     * Crée 2 réservations sur le trajet Séné → Vannes.
-     * student1 et student2 réservent, student3 ne réserve pas.
+     * Crée des réservations sur les trajets :
+     * - Trajet futur : student1 et student2 (CONFIRMED)
+     * - Trajet passé : student1 et student3 (CONFIRMED)
+     * - Trajet annulé : student2 (CANCELLED)
      */
     private void initReservations() {
         if (reservationRepository.count() > 0) {
@@ -438,12 +484,28 @@ public class DataLoader {
 
         log.info("🧪 Creating reservations...");
 
-        ReservationStatus pendingStatus = reservationStatusRepository.findByLabel(ReservationStatus.CONFIRMED)
-                .orElseThrow(() -> new IllegalStateException("PENDING status not found"));
+        ReservationStatus confirmedStatus = reservationStatusRepository.findByLabel(ReservationStatus.CONFIRMED)
+                .orElseThrow(() -> new IllegalStateException("CONFIRMED status not found"));
 
-        Trip trip = tripRepository.findAll().stream()
+        ReservationStatus cancelledStatus = reservationStatusRepository.findByLabel(ReservationStatus.CANCELLED)
+                .orElseThrow(() -> new IllegalStateException("CANCELLED status not found"));
+
+        List<Trip> trips = tripRepository.findAll();
+
+        Trip plannedTrip = trips.stream()
+                .filter(t -> t.getTripStatus().getLabel().equals(TripStatus.PLANNED))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No trip found"));
+                .orElseThrow(() -> new IllegalStateException("No planned trip found"));
+
+        Trip completedTrip = trips.stream()
+                .filter(t -> t.getTripStatus().getLabel().equals(TripStatus.COMPLETED))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No completed trip found"));
+
+        Trip cancelledTrip = trips.stream()
+                .filter(t -> t.getTripStatus().getLabel().equals(TripStatus.CANCELLED))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No cancelled trip found"));
 
         Person student1 = personRepository.findByEmail("student1@test.fr")
                 .orElseThrow(() -> new IllegalStateException("Student1 not found"));
@@ -451,23 +513,43 @@ public class DataLoader {
         Person student2 = personRepository.findByEmail("student2@test.fr")
                 .orElseThrow(() -> new IllegalStateException("Student2 not found"));
 
+        Person student3 = personRepository.findByEmail("student3@test.fr")
+                .orElseThrow(() -> new IllegalStateException("Student3 not found"));
+
         reservationRepository.save(Reservation.builder()
-                .trip(trip)
+                .trip(plannedTrip)
                 .person(student1)
-                .reservationStatus(pendingStatus)
+                .reservationStatus(confirmedStatus)
                 .build());
 
         reservationRepository.save(Reservation.builder()
-                .trip(trip)
+                .trip(plannedTrip)
                 .person(student2)
-                .reservationStatus(pendingStatus)
+                .reservationStatus(confirmedStatus)
                 .build());
 
-        // Mettre à jour les places disponibles sur le trajet
-        trip.setAvailableSeats(trip.getAvailableSeats() - 2);
-        tripRepository.save(trip);
+        plannedTrip.setAvailableSeats(1);
+        tripRepository.save(plannedTrip);
 
-        log.info("✅ Reservations created");
+        reservationRepository.save(Reservation.builder()
+                .trip(completedTrip)
+                .person(student1)
+                .reservationStatus(confirmedStatus)
+                .build());
+
+        reservationRepository.save(Reservation.builder()
+                .trip(completedTrip)
+                .person(student3)
+                .reservationStatus(confirmedStatus)
+                .build());
+
+        reservationRepository.save(Reservation.builder()
+                .trip(cancelledTrip)
+                .person(student2)
+                .reservationStatus(cancelledStatus)
+                .build());
+
+        log.info("✅ Reservations created (2 on planned, 2 on completed, 1 cancelled on cancelled)");
     }
     //endregion
 

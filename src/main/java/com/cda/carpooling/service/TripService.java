@@ -47,13 +47,15 @@ public class TripService {
      * @param tripDate Date du trajet (filtre par jour)
      * @param startingCity Nom de la ville de départ
      * @param arrivalCity Nom de la ville d'arrivée
+     * @param isUpcoming Si true, ne retourne que les trajets futurs
      * @return Liste de TripMinimalResponse
      */
     @Transactional(readOnly = true)
     public List<TripResponse> getAllTrips(
             LocalDate tripDate,
             String startingCity,
-            String arrivalCity) {
+            String arrivalCity,
+            Boolean isUpcoming) {
 
         log.debug("Recherche trajets : date={}, départ={}, arrivée={}",
                 tripDate, startingCity, arrivalCity);
@@ -61,7 +63,8 @@ public class TripService {
         Specification<Trip> spec = Specification
                 .where(TripSpecification.hasDate(tripDate))
                 .and(TripSpecification.hasDepartureCity(startingCity))
-                .and(TripSpecification.hasArrivingCity(arrivalCity));
+                .and(TripSpecification.hasArrivingCity(arrivalCity))
+                .and(TripSpecification.isUpcoming(isUpcoming));
 
         List<TripResponse> results = tripRepository.findAll(spec)
                 .stream()
