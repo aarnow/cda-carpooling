@@ -29,15 +29,18 @@ public class EmailService {
     private final MailjetClient mailjetClient;
     private final String fromEmail;
     private final String fromName;
+    private final String frontendUrl;
 
     public EmailService(
             @Value("${mailjet.api-key}") String apiKey,
             @Value("${mailjet.secret-key}") String secretKey,
             @Value("${mailjet.from-email}") String fromEmail,
-            @Value("${mailjet.from-name}") String fromName) {
+            @Value("${mailjet.from-name}") String fromName,
+            @Value("${app.frontend.url:http://localhost:3000}") String frontendUrl) {
 
         this.fromEmail = fromEmail;
         this.fromName = fromName;
+        this.frontendUrl = frontendUrl;
 
         ClientOptions options = ClientOptions.builder()
                 .apiKey(apiKey)
@@ -290,7 +293,7 @@ public class EmailService {
      */
     private String buildPasswordResetTemplate(Person person, String resetToken, int validityMinutes) {
         String resetUrl = String.format("%s/auth/reset-password?token=%s",
-                System.getenv().getOrDefault("FRONTEND_URL", "http://localhost:3000"),
+                this.frontendUrl,
                 resetToken);
 
         String greeting = (person.getProfile() != null && person.getProfile().getFirstname() != null)

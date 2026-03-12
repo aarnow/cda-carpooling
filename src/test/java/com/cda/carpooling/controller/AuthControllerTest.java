@@ -10,6 +10,7 @@ import com.cda.carpooling.security.AuthService;
 import com.cda.carpooling.security.JwtService;
 import com.cda.carpooling.security.RefreshTokenService;
 import com.cda.carpooling.entity.Person;
+import com.cda.carpooling.service.PasswordResetService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -47,6 +48,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private RefreshTokenService refreshTokenService;
+
+    @MockitoBean
+    private PasswordResetService passwordResetService;
 
     @MockitoBean
     private JwtDecoder jwtDecoder;
