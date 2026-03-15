@@ -26,12 +26,14 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/carpooling
-      SPRING_DATASOURCE_USERNAME: myuser
-      SPRING_DATASOURCE_PASSWORD: mypassword
-    depends_on:
-      postgres:
-        condition: service_healthy
+      SPRING_PROFILES_ACTIVE: prod
+      POSTGRESQL_ADDON_HOST: bggzcwrpaqzm5cedig8h-postgresql.services.clever-cloud.com
+      POSTGRESQL_ADDON_PORT: "7386"
+      POSTGRESQL_ADDON_DB: bggzcwrpaqzm5cedig8h
+      POSTGRESQL_ADDON_USER: uxthnrpby8hqtytmzqc9
+      POSTGRESQL_ADDON_PASSWORD: yzisdgzV5heCordZSws0
+      JWT_SECRET_KEY: JpBPxK9lkIQtmNsZ0WC4SN/4CVZlsGueZR80nqKL+NeZ+xAmrhOtlxw9iQs7p0qd
+      FRONTEND_URL: http://localhost:5173
     networks:
       - app-network
     restart: on-failure
