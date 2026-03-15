@@ -41,14 +41,6 @@ public class DataLoader {
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void onApplicationReady() {
-        String[] profiles = environment.getActiveProfiles();
-        for (String profile : profiles) {
-            if (profile.equals("prod")) {
-                log.info("⏭️ Production profile - skipping data initialization");
-                return;
-            }
-        }
-
         log.info("🔄 Initializing reference data...");
 
         initPersonStatuses();
@@ -198,11 +190,9 @@ public class DataLoader {
                 "Isis Imports Ltd"
         );
 
-        List<Brand> brands = brandNames.stream()
+        brandNames.stream()
                 .map(name -> Brand.builder().name(name).build())
-                .toList();
-
-        brandRepository.saveAll(brands);
+                .forEach(brandRepository::save);
 
         log.info("✅ {} brands created", brandNames.size());
     }
