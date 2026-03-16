@@ -1,6 +1,7 @@
 package com.cda.carpooling.mapper;
 
 import com.cda.carpooling.dto.response.BrandResponse;
+import com.cda.carpooling.dto.response.VehicleMinimalResponse;
 import com.cda.carpooling.dto.response.VehicleResponse;
 import com.cda.carpooling.entity.Vehicle;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,24 @@ public class VehicleMapper {
                         .name(vehicle.getBrand().getName())
                         .build())
                 .person(personMapper.toResponse(vehicle.getPerson()))
+                .build();
+    }
+
+    public VehicleMinimalResponse toMinimalResponse(Vehicle vehicle) {
+        if (vehicle == null) {
+            return null;
+        }
+
+        return VehicleMinimalResponse.builder()
+                .id(vehicle.getId())
+                .model(vehicle.getModel())
+                .seats(vehicle.getSeats())
+                .plate(vehicle.getPlate())
+                .description(vehicle.getDescription())
+                .brand(BrandResponse.builder()
+                        .id(vehicle.getBrand().getId())
+                        .name(vehicle.getBrand().getName())
+                        .build())
                 .build();
     }
 }

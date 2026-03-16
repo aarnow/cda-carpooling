@@ -2,6 +2,7 @@ package com.cda.carpooling.controller;
 
 import com.cda.carpooling.dto.request.CreateVehicleRequest;
 import com.cda.carpooling.dto.request.UpdateVehicleRequest;
+import com.cda.carpooling.dto.response.VehicleMinimalResponse;
 import com.cda.carpooling.dto.response.VehicleResponse;
 import com.cda.carpooling.security.SecurityUtils;
 import com.cda.carpooling.service.VehicleService;
@@ -40,6 +41,23 @@ public class VehicleController {
     @GetMapping
     public ResponseEntity<List<VehicleResponse>> getAllVehicles() {
         return ResponseEntity.ok(vehicleService.getAllVehicles());
+    }
+
+    /**
+     * GET /vehicles/me
+     * Récupère le véhicule de l'utilisateur authentifié.
+     *
+     * @param jwt JWT de l'utilisateur connecté
+     * @return 200 OK avec le véhicule, ou 204 NO CONTENT si aucun véhicule
+     */
+    @GetMapping("/me")
+    public ResponseEntity<VehicleMinimalResponse> getMyVehicle(@AuthenticationPrincipal Jwt jwt) {
+        Long personId = securityUtils.extractUserId(jwt);
+        log.info("Récupération véhicule pour personne {}", personId);
+
+        return vehicleService.getMyVehicle(personId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.noContent().build());
     }
 
     /**
