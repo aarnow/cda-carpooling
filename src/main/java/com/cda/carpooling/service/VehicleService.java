@@ -2,6 +2,7 @@ package com.cda.carpooling.service;
 
 import com.cda.carpooling.dto.request.CreateVehicleRequest;
 import com.cda.carpooling.dto.request.UpdateVehicleRequest;
+import com.cda.carpooling.dto.response.VehicleMinimalResponse;
 import com.cda.carpooling.dto.response.VehicleResponse;
 import com.cda.carpooling.entity.Brand;
 import com.cda.carpooling.entity.Person;
@@ -102,6 +103,19 @@ public class VehicleService {
                 targetPersonId, saved.getId());
 
         return vehicleMapper.toResponse(saved);
+    }
+
+    /**
+     * Récupère le véhicule de l'utilisateur authentifié.
+     * Retourne un Optional vide si l'utilisateur n'a pas de véhicule.
+     *
+     * @param personId ID de la personne authentifiée
+     * @return Optional<VehicleResponse>
+     */
+    @Transactional(readOnly = true)
+    public Optional<VehicleMinimalResponse> getMyVehicle(Long personId) {
+        return vehicleRepository.findByPersonId(personId)
+                .map(vehicleMapper::toMinimalResponse);
     }
 
     /**

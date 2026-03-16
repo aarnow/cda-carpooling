@@ -21,7 +21,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/brands")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
 public class BrandController {
 
     private final BrandService brandService;
@@ -56,6 +55,7 @@ public class BrandController {
      * @param request Les données de la marque
      * @return 201 CREATED avec la marque créée
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<BrandResponse> createBrand(@Valid @RequestBody BrandRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(brandService.createBrand(request));
@@ -69,6 +69,7 @@ public class BrandController {
      * @param request Les nouvelles données
      * @return 200 OK avec la marque mise à jour
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<BrandResponse> updateBrand(
             @PathVariable Long id,
@@ -84,6 +85,7 @@ public class BrandController {
      * @param id L'ID de la marque
      * @return 204 NO CONTENT
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBrand(@PathVariable Long id) {
         brandService.deleteBrand(id);
