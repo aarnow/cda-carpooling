@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
@@ -55,6 +56,8 @@ public class JwtService {
 
         SecretKey key = new SecretKeySpec(secretKey.getBytes(), "HmacSHA256");
 
+
+
         this.jwtEncoder = new NimbusJwtEncoder(
                 new ImmutableSecret<>(key)
         );
@@ -64,7 +67,7 @@ public class JwtService {
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
 
-        JwtTimestampValidator timestampValidator = new JwtTimestampValidator();
+        JwtTimestampValidator timestampValidator = new JwtTimestampValidator(Duration.ZERO);
         timestampValidator.setClock(this.clock);
 
         decoder.setJwtValidator(
