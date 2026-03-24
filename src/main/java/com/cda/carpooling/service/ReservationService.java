@@ -104,6 +104,35 @@ public class ReservationService {
     }
 
     /**
+     * Annule la réservation d'une personne sur un trajet spécifique.
+     * Lève une exception si aucune réservation active n'est trouvée.
+     *
+     * @param tripId   ID du trajet
+     * @param personId ID de la personne
+     * @return La réservation annulée
+     */
+    @Transactional
+    public Reservation cancelSingleTripReservation(Long tripId, Long personId) {
+        Reservation reservation = reservationRepository
+                .findByTripIdAndPersonIdAndStatusNotCancelled(tripId, personId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Réservation active", "tripId/personId", tripId + "/" + personId));
+
+        ReservationStatus cancelledStatus = reservationStatusRepository.findByLabel(ReservationStatus.CANCELLED)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Statut", "label", ReservationStatus.CANCELLED));
+
+        reservation.setReservationStatus(cancelledStatus);
+
+        // Restitue la place au trajet
+        Trip trip = reservation.getTrip();
+        trip.setAvailableSeats(trip.getAvailableSeats() + 1);
+        tripRepository.save(trip);
+
+        return reservationRepository.save(reservation);
+    }
+
+    /**
      * Vérifie si une personne a une réservation (active ou annulée) sur un trajet.
      */
     @Transactional(readOnly = true)

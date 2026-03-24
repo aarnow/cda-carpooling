@@ -1,5 +1,6 @@
 package com.cda.carpooling.controller;
 
+import com.cda.carpooling.dto.request.ContactRequest;
 import com.cda.carpooling.dto.request.CreatePersonProfileRequest;
 import com.cda.carpooling.dto.request.UpdatePersonProfileRequest;
 import com.cda.carpooling.dto.response.PersonMinimalResponse;
@@ -37,6 +38,20 @@ public class PersonController {
     private final PersonService personService;
     private final TripService tripService;
     private final SecurityUtils securityUtils;
+
+
+    @PostMapping("/{personId}/contact")
+    public ResponseEntity<Void> contactPerson(
+            @PathVariable Long personId,
+            @Valid @RequestBody ContactRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        Long senderId = securityUtils.extractUserId(jwt);
+        log.info("Contact de la personne {} par {}", personId, senderId);
+
+        personService.contactPerson(senderId, personId, request);
+        return ResponseEntity.noContent().build();
+    }
 
     /**
      * GET /persons

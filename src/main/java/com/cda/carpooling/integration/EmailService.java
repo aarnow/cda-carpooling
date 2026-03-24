@@ -147,6 +147,31 @@ public class EmailService {
     }
 
     /**
+     * Envoie un email de contact entre deux utilisateurs.
+     * L'email est envoyé au destinataire, avec l'expéditeur en reply-to.
+     *
+     * @param sender      Expéditeur
+     * @param recipient   Destinataire
+     * @param subject     Sujet du message
+     * @param message     Corps du message
+     */
+    @Async
+    public void sendContactEmail(Person sender, Person recipient, String subject, String message) {
+        log.info("Envoi email de contact de {} vers {}", sender.getEmail(), recipient.getEmail());
+
+        try {
+            sendEmail(
+                    recipient.getEmail(),
+                    subject,
+                    buildContactTemplate(sender, recipient, subject, message)
+            );
+            log.debug("Email de contact envoyé à {}", recipient.getEmail());
+        } catch (Exception e) {
+            log.error("Erreur envoi email de contact à {} : {}", recipient.getEmail(), e.getMessage());
+        }
+    }
+
+    /**
      * Envoie un email via Mailjet.
      */
     private void sendEmail(String toEmail, String subject, String htmlContent) throws MailjetException {
@@ -170,6 +195,74 @@ public class EmailService {
     }
 
     //region Templates HTML
+    /**
+     * Template HTML pour email de contact entre utilisateurs.
+     */
+    private String buildContactTemplate(Person sender, Person recipient, String subject, String message) {
+        String senderName = (sender.getProfile() != null && sender.getProfile().getFirstname() != null)
+                ? sender.getProfile().getFirstname()
+                : sender.getEmail();
+
+        String recipientName = (recipient.getProfile() != null && recipient.getProfile().getFirstname() != null)
+                ? recipient.getProfile().getFirstname()
+                : recipient.getEmail();
+
+        // Sécurise le message contre l'injection HTML
+        String safeMessage = message
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\n", "<br>");
+
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                    .header { background: #9C27B0; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+                    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+                    .message-box { background: white; padding: 20px; margin: 20px 0; border-left: 4px solid #9C27B0; }
+                    .sender-info { color: #666; font-size: 14px; margin-bottom: 20px; }
+                    .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>✉️ Nouveau message</h1>
+                    </div>
+                    <div class="content">
+                        <p>Bonjour <strong>%s</strong>,</p>
+                        <p class="sender-info">Vous avez reçu un message de <strong>%s</strong> (%s) :</p>
+                        <div class="message-box">
+                            <p>%s</p>
+                        </div>
+                        <p style="color: #666; font-size: 13px;">
+                            Pour répondre, contactez directement <strong>%s</strong> à l'adresse :
+                            <a href="mailto:%s">%s</a>
+                        </p>
+                    </div>
+                    <div class="footer">
+                        <p>Cet email a été envoyé automatiquement via Carpooling, merci de ne pas y répondre.</p>
+                        <p>© 2026 Carpooling - Tous droits réservés</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """.formatted(
+                recipientName,
+                senderName,
+                sender.getEmail(),
+                safeMessage,
+                senderName,
+                sender.getEmail(),
+                sender.getEmail()
+        );
+    }
+
     /**
      * Template HTML pour notification de modification de trajet.
      */

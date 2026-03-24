@@ -40,7 +40,7 @@ public class ReservationMapper {
                 .reservationStatus(reservation.getReservationStatus().getLabel())
                 .createdAt(reservation.getCreatedAt())
                 .updatedAt(reservation.getUpdatedAt())
-                .passenger(personMapper.toMinimalResponse(reservation.getPerson()))
+                .passenger(personMapper.toResponse(reservation.getPerson()))
                 .build();
     }
 }

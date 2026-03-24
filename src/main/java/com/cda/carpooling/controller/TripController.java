@@ -1,11 +1,13 @@
 package com.cda.carpooling.controller;
 
+import com.cda.carpooling.dto.request.ContactRequest;
 import com.cda.carpooling.dto.request.CreateTripRequest;
 import com.cda.carpooling.dto.request.UpdateTripRequest;
 import com.cda.carpooling.dto.response.PersonMinimalResponse;
 import com.cda.carpooling.dto.response.ReservationResponse;
 import com.cda.carpooling.dto.response.TripResponse;
 import com.cda.carpooling.dto.response.TripMinimalResponse;
+import com.cda.carpooling.integration.EmailService;
 import com.cda.carpooling.security.SecurityUtils;
 import com.cda.carpooling.service.ReservationService;
 import com.cda.carpooling.service.TripService;
@@ -144,6 +146,32 @@ public class TripController {
         log.info("Toggle réservation trajet {} par personne {}", id, personId);
 
         return ResponseEntity.ok(reservationService.toggleReservation(id, personId));
+    }
+
+    /**
+     * DELETE /trips/{id}/persons/{personId}/reservation
+     * Annule la réservation d'un passager sur un trajet.
+     * Réservé au passager lui-même, au conducteur du trajet, ou à un admin.
+     */
+    @DeleteMapping("/{id}/persons/{personId}/reservation")
+    public ResponseEntity<Void> cancelPassengerReservation(
+            @PathVariable Long id,
+            @PathVariable Long personId,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        Long requesterId = securityUtils.extractUserId(jwt);
+        Long driverId = tripService.getTripDriverId(id);
+
+        boolean isSelf = requesterId.equals(personId);
+        boolean isDriverOrAdmin = securityUtils.isOwnerOrAdmin(driverId, jwt);
+
+        if (!isSelf && !isDriverOrAdmin) {
+            throw new AccessDeniedException("Vous n'avez pas la permission d'annuler cette réservation");
+        }
+
+        log.info("Annulation réservation de la personne {} sur le trajet {} par {}", personId, id, requesterId);
+        reservationService.cancelSingleTripReservation(id, personId);
+        return ResponseEntity.noContent().build();
     }
 
     //region Utils
