@@ -228,7 +228,7 @@ public class TripService {
 
         List<Person> passengers = updated.getReservations().stream()
                 .filter(r -> !r.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED))
-                .map(com.cda.carpooling.entity.Reservation::getPerson)
+                .map(Reservation::getPerson)
                 .toList();
 
         emailService.sendTripUpdateNotification(updated, passengers);
@@ -246,13 +246,40 @@ public class TripService {
 
         List<Person> passengers = trip.getReservations().stream()
                 .filter(r -> !r.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED))
-                .map(com.cda.carpooling.entity.Reservation::getPerson)
+                .map(Reservation::getPerson)
                 .toList();
 
         reservationService.cancelTripReservations(trip);
         tripRepository.delete(trip);
         emailService.sendTripCancellationNotification(trip, passengers);
         log.warn("🗑Trajet {} supprimé", id);
+    }
+
+    /**
+     * Annule un trajet
+     * Annule les réservations associées et notifie les passagers.
+     */
+    @Transactional
+    public TripResponse cancelTrip(Long id) {
+        Trip trip = findTripOrThrow(id);
+
+        TripStatus cancelledStatus = tripStatusRepository.findByLabel(TripStatus.CANCELLED)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Statut", "label", TripStatus.CANCELLED));
+
+        List<Person> passengers = trip.getReservations().stream()
+                .filter(r -> !r.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED))
+                .map(Reservation::getPerson)
+                .toList();
+
+        reservationService.cancelTripReservations(trip);
+        trip.setTripStatus(cancelledStatus);
+        Trip updated = tripRepository.save(trip);
+
+        emailService.sendTripCancellationNotification(updated, passengers);
+        log.warn("Trajet {} annulé", id);
+
+        return tripMapper.toResponse(updated);
     }
 
     /**

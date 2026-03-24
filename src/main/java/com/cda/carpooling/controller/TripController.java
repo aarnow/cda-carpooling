@@ -119,6 +119,20 @@ public class TripController {
     }
 
     /**
+     * PATCH /trips/{id}/cancel
+     * Annule un trajet (statut → CANCELLED).
+     * Réservé au conducteur propriétaire ou à un admin.
+     */
+    @PatchMapping("/{id}/cancel")
+    public ResponseEntity<TripResponse> cancelTrip(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt) {
+        log.warn("Annulation trajet {} par personne {}", id, securityUtils.extractUserId(jwt));
+        checkDriverOrAdmin(id, jwt);
+        return ResponseEntity.ok(tripService.cancelTrip(id));
+    }
+
+    /**
      * DELETE /trips/{id}
      * Supprime un trajet.
      * Réservé au conducteur propriétaire ou à un admin.
