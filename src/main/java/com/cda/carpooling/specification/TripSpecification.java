@@ -23,6 +23,17 @@ public class TripSpecification {
                 cb.equal(root.get("arrivingAddress").get("city").get("name"), cityName);
     }
 
+    public static Specification<Trip> fromHour(Integer fromHour) {
+        return (root, query, cb) -> {
+            if (fromHour == null) return null;
+            return cb.greaterThanOrEqualTo(
+                    cb.function("date_part", Double.class,
+                            cb.literal("hour"), root.get("tripDatetime")),
+                    (double) fromHour
+            );
+        };
+    }
+
     /**
      * Filtre par trajets futurs (non passés).
      * Si isUpcoming == true, retourne uniquement les trajets dont la date est >= maintenant.

@@ -22,8 +22,5 @@ public class ReservationResponse {
     private PersonResponse passenger;
 
     // Trajet
-    private Long tripId;
-    private LocalDateTime tripDatetime;
-    private String departureCityName;
-    private String arrivingCityName;
+    private TripMinimalResponse trip;
 }

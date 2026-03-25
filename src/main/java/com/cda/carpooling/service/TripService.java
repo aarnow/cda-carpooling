@@ -3,6 +3,7 @@ package com.cda.carpooling.service;
 import com.cda.carpooling.dto.request.CreateTripRequest;
 import com.cda.carpooling.dto.request.UpdateTripRequest;
 import com.cda.carpooling.dto.response.PersonMinimalResponse;
+import com.cda.carpooling.dto.response.ReservationResponse;
 import com.cda.carpooling.dto.response.TripMinimalResponse;
 import com.cda.carpooling.dto.response.TripResponse;
 import com.cda.carpooling.entity.*;
@@ -55,7 +56,8 @@ public class TripService {
             LocalDate tripDate,
             String startingCity,
             String arrivalCity,
-            Boolean isUpcoming) {
+            Boolean isUpcoming,
+            Integer fromHour) {
 
         log.debug("Recherche trajets : date={}, départ={}, arrivée={}",
                 tripDate, startingCity, arrivalCity);
@@ -64,7 +66,8 @@ public class TripService {
                 .where(TripSpecification.hasDate(tripDate))
                 .and(TripSpecification.hasDepartureCity(startingCity))
                 .and(TripSpecification.hasArrivingCity(arrivalCity))
-                .and(TripSpecification.isUpcoming(isUpcoming));
+                .and(TripSpecification.isUpcoming(isUpcoming))
+                .and(TripSpecification.fromHour(fromHour));
 
         List<TripResponse> results = tripRepository.findAll(spec)
                 .stream()
@@ -317,17 +320,6 @@ public class TripService {
     @Transactional(readOnly = true)
     public List<TripMinimalResponse> getTripsByDriver(Long driverId) {
         return tripRepository.findAllByDriverId(driverId)
-                .stream()
-                .map(tripMapper::toMinimalResponse)
-                .toList();
-    }
-
-    /**
-     * Retourne tous les trajets d'une personne en tant que passager
-     */
-    @Transactional(readOnly = true)
-    public List<TripMinimalResponse> getTripsByPassenger(Long personId) {
-        return tripRepository.findAllByPassengerId(personId)
                 .stream()
                 .map(tripMapper::toMinimalResponse)
                 .toList();

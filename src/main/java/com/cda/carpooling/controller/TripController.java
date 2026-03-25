@@ -47,9 +47,10 @@ public class TripController {
             @RequestParam(required = false) LocalDate tripDate,
             @RequestParam(required = false) String startingCity,
             @RequestParam(required = false) String arrivalCity,
-            @RequestParam(required = false) Boolean isUpcoming) {
+            @RequestParam(required = false) Boolean isUpcoming,
+            @RequestParam(required = false) Integer fromHour) {
         log.debug("Recherche trajets : date={}, départ={}, arrivée={}", tripDate, startingCity, arrivalCity);
-        return ResponseEntity.ok(tripService.getAllTrips(tripDate, startingCity, arrivalCity, isUpcoming));
+        return ResponseEntity.ok(tripService.getAllTrips(tripDate, startingCity, arrivalCity, isUpcoming, fromHour));
     }
 
     /**

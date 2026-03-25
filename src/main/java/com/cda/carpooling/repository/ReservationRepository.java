@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -24,4 +25,9 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("tripId") Long tripId,
             @Param("personId") Long personId
     );
+
+    /**
+     * Retourne les réservations d'une personne selon son ID unique
+     */
+    List<Reservation> findByPersonId(Long personId);
 }

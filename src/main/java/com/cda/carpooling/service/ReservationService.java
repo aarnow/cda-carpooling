@@ -76,6 +76,20 @@ public class ReservationService {
     }
 
     /**
+     * Retourne toutes les réservations d'une personne en tant que passager.
+     *
+     * @param personId ID de la personne
+     * @return Liste des réservations
+     */
+    @Transactional(readOnly = true)
+    public List<ReservationResponse> getTripsByPassenger(Long personId) {
+        return reservationRepository.findByPersonId(personId)
+                .stream()
+                .map(reservationMapper::toResponse)
+                .toList();
+    }
+
+    /**
      * Annule toutes les réservations actives d'un trajet.
      *
      * @param trip Le trajet dont les réservations doivent être annulées
