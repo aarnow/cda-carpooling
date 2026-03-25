@@ -52,7 +52,7 @@ public class TripService {
      * @return Liste de TripMinimalResponse
      */
     @Transactional(readOnly = true)
-    public List<TripResponse> getAllTrips(
+    public List<TripMinimalResponse> getAllTrips(
             LocalDate tripDate,
             String startingCity,
             String arrivalCity,
@@ -69,9 +69,9 @@ public class TripService {
                 .and(TripSpecification.isUpcoming(isUpcoming))
                 .and(TripSpecification.fromHour(fromHour));
 
-        List<TripResponse> results = tripRepository.findAll(spec)
+        List<TripMinimalResponse> results = tripRepository.findAll(spec)
                 .stream()
-                .map(tripMapper::toResponse)
+                .map(tripMapper::toMinimalResponse)
                 .toList();
 
         log.debug("{} trajets trouvés", results.size());

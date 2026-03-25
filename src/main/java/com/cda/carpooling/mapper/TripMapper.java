@@ -15,7 +15,7 @@ public class TripMapper {
     private final AddressMapper addressMapper;
     private final PersonMapper personMapper;
     private final CityMapper cityMapper;
-    // ✅ No more ReservationMapper here
+    private final VehicleMapper vehicleMapper;
 
     public TripMinimalResponse toMinimalResponse(Trip trip) {
         if (trip == null) return null;
@@ -54,7 +54,7 @@ public class TripMapper {
                 .departureAddress(addressMapper.toResponse(trip.getDepartureAddress()))
                 .arrivingAddress(addressMapper.toResponse(trip.getArrivingAddress()))
                 .driver(personMapper.toResponse(driver))
-                // ✅ Map reservations inline — no ReservationMapper needed
+                .vehicle(vehicleMapper.toMinimalResponse(driver.getVehicle()))
                 .reservations(trip.getReservations().stream()
                         .map(r -> ReservationMinimalResponse.builder()
                                 .id(r.getId())

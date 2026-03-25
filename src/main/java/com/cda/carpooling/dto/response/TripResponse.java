@@ -35,6 +35,9 @@ public class TripResponse {
     // Conducteur
     private PersonResponse driver;
 
+    // TODO
+    private VehicleMinimalResponse vehicle;
+
     // Réservations
     private List<ReservationMinimalResponse> reservations;
 }
