@@ -1,5 +1,6 @@
 package com.cda.carpooling.mapper;
 
+import com.cda.carpooling.dto.response.ReservationMinimalResponse;
 import com.cda.carpooling.dto.response.TripMinimalResponse;
 import com.cda.carpooling.dto.response.TripResponse;
 import com.cda.carpooling.entity.Person;
@@ -12,15 +13,12 @@ import org.springframework.stereotype.Component;
 @AllArgsConstructor
 public class TripMapper {
     private final AddressMapper addressMapper;
-    private final PersonProfileMapper personProfileMapper;
     private final PersonMapper personMapper;
     private final CityMapper cityMapper;
-    private final ReservationMapper reservationMapper;
+    private final VehicleMapper vehicleMapper;
 
     public TripMinimalResponse toMinimalResponse(Trip trip) {
-        if(trip == null){
-            return null;
-        }
+        if (trip == null) return null;
 
         Person driver = trip.getDriver();
 
@@ -39,11 +37,9 @@ public class TripMapper {
     }
 
     public TripResponse toResponse(Trip trip) {
-        if(trip == null){
-            return null;
-        }
+        if (trip == null) return null;
 
-        PersonProfile profile = trip.getDriver().getProfile();
+        Person driver = trip.getDriver();
 
         return TripResponse.builder()
                 .id(trip.getId())
@@ -57,9 +53,16 @@ public class TripMapper {
                 .updatedAt(trip.getUpdatedAt())
                 .departureAddress(addressMapper.toResponse(trip.getDepartureAddress()))
                 .arrivingAddress(addressMapper.toResponse(trip.getArrivingAddress()))
-                .driver(personProfileMapper.toResponse(profile))
+                .driver(personMapper.toResponse(driver))
+                .vehicle(vehicleMapper.toMinimalResponse(driver.getVehicle()))
                 .reservations(trip.getReservations().stream()
-                        .map(reservationMapper::toMinimalResponse)
+                        .map(r -> ReservationMinimalResponse.builder()
+                                .id(r.getId())
+                                .reservationStatus(r.getReservationStatus().getLabel())
+                                .createdAt(r.getCreatedAt())
+                                .updatedAt(r.getUpdatedAt())
+                                .passenger(personMapper.toResponse(r.getPerson()))
+                                .build())
                         .toList())
                 .build();
     }

@@ -1,5 +1,6 @@
 package com.cda.carpooling.service;
 
+import com.cda.carpooling.dto.request.ContactRequest;
 import com.cda.carpooling.dto.request.CreatePersonProfileRequest;
 import com.cda.carpooling.dto.request.CreatePersonRequest;
 import com.cda.carpooling.dto.request.UpdatePersonProfileRequest;
@@ -12,11 +13,13 @@ import com.cda.carpooling.entity.Role;
 import com.cda.carpooling.entity.PersonStatus;
 import com.cda.carpooling.exception.ResourceNotFoundException;
 import com.cda.carpooling.exception.DuplicateResourceException;
+import com.cda.carpooling.integration.EmailService;
 import com.cda.carpooling.mapper.PersonMapper;
 import com.cda.carpooling.mapper.PersonProfileMapper;
 import com.cda.carpooling.repository.RoleRepository;
 import com.cda.carpooling.repository.PersonRepository;
 import com.cda.carpooling.repository.PersonStatusRepository;
+import jakarta.validation.Valid;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,6 +47,7 @@ public class PersonService {
     private final PersonMapper personMapper;
     private final PersonProfileMapper personProfileMapper;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     /**
      * Crée un nouvel utilisateur avec statut ACTIVE et rôle STUDENT par défaut.
@@ -250,5 +254,22 @@ public class PersonService {
         Person updatedPerson = personRepository.save(person);
         log.info("Rôle {} retiré à personne {}", roleLabel, personId);
         return personMapper.toResponse(updatedPerson);
+    }
+
+    /**
+     * Envoie un email de contact d'un utilisateur vers un autre.
+     *
+     * @param senderId   ID de l'expéditeur
+     * @param recipientId ID du destinataire
+     * @param request    Sujet et message
+     */
+    public void contactPerson(Long senderId, Long recipientId, ContactRequest request) {
+        Person sender = personRepository.findById(senderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Personne", "id", senderId));
+        Person recipient = personRepository.findById(recipientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Personne", "id", recipientId));
+
+        log.info("Email de contact : {} → {}", sender.getEmail(), recipient.getEmail());
+        emailService.sendContactEmail(sender, recipient, request.getSubject(), request.getMessage());
     }
 }

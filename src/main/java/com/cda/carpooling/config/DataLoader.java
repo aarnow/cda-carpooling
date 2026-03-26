@@ -217,10 +217,12 @@ public class DataLoader {
         createStudentPerson(activeStatus, "student1@test.fr", "Student1@123");
         createStudentPerson(activeStatus, "student2@test.fr", "Student2@123");
         createStudentPerson(activeStatus, "student3@test.fr", "Student3@123");
-        createDriverPerson(activeStatus);
+        createDriverPerson(activeStatus, "driver1@test.fr", "Driver1@123", "Martin",  "Jean",   LocalDate.of(1990, 5, 15), "0698765432");
+        createDriverPerson(activeStatus, "driver2@test.fr", "Driver2@123", "Dubois",  "Sophie", LocalDate.of(1987, 3, 22), "0612345678");
 
         log.info("✅ Test persons created");
     }
+
     //region create persons
     /**
      * Crée un utilisateur admin avec le rôle ADMIN.
@@ -263,25 +265,28 @@ public class DataLoader {
     /**
      * Crée un utilisateur conducteur avec les rôles STUDENT et DRIVER + profil complet.
      */
-    private void createDriverPerson(PersonStatus activeStatus) {
+    private void createDriverPerson(PersonStatus activeStatus,
+                                    String email, String password,
+                                    String lastname, String firstname,
+                                    LocalDate birthday, String phone) {
         Role studentRole = roleRepository.findByLabel(Role.ROLE_STUDENT)
                 .orElseThrow(() -> new IllegalStateException("STUDENT role not found"));
         Role driverRole = roleRepository.findByLabel(Role.ROLE_DRIVER)
                 .orElseThrow(() -> new IllegalStateException("DRIVER role not found"));
 
         Person driver = Person.builder()
-                .email("driver@test.fr")
-                .password(passwordEncoder.encode("Driver@123"))
+                .email(email)
+                .password(passwordEncoder.encode(password))
                 .status(activeStatus)
                 .createdAt(LocalDateTime.now())
                 .build();
 
         PersonProfile driverProfile = PersonProfile.builder()
                 .person(driver)
-                .lastname("Martin")
-                .firstname("Jean")
-                .birthday(LocalDate.of(1990, 5, 15))
-                .phone("0698765432")
+                .lastname(lastname)
+                .firstname(firstname)
+                .birthday(birthday)
+                .phone(phone)
                 .build();
 
         driver.setProfile(driverProfile);
@@ -289,8 +294,7 @@ public class DataLoader {
         driver.getRoles().add(driverRole);
 
         personRepository.save(driver);
-
-        log.info("✅ Driver person: driver@test.fr / Driver@123 (with profile)");
+        log.info("✅ Driver person: {} / {} (with profile)", email, password);
     }
     //endregion
 
@@ -305,23 +309,35 @@ public class DataLoader {
 
         log.info("🧪 Creating vehicles...");
 
-        Person driver = personRepository.findByEmail("driver@test.fr")
-                .orElseThrow(() -> new IllegalStateException("Driver not found"));
+        Person driver1 = personRepository.findByEmail("driver1@test.fr")
+                .orElseThrow(() -> new IllegalStateException("Driver1 not found"));
+        Person driver2 = personRepository.findByEmail("driver2@test.fr")
+                .orElseThrow(() -> new IllegalStateException("Driver2 not found"));
 
         Brand renault = brandRepository.findByName("Renault")
                 .orElseThrow(() -> new IllegalStateException("Renault brand not found"));
+        Brand peugeot = brandRepository.findByName("Peugeot")
+                .orElseThrow(() -> new IllegalStateException("Peugeot brand not found"));
 
-        Vehicle vehicle = Vehicle.builder()
-                .person(driver)
+        vehicleRepository.save(Vehicle.builder()
+                .person(driver1)
                 .brand(renault)
                 .model("Clio")
                 .seats(4)
                 .plate("AB-123-CD")
                 .description("Voiture confortable et économique")
-                .build();
+                .build());
 
-        vehicleRepository.save(vehicle);
-        log.info("✅ Vehicle created");
+        vehicleRepository.save(Vehicle.builder()
+                .person(driver2)
+                .brand(peugeot)
+                .model("208")
+                .seats(4)
+                .plate("EF-456-GH")
+                .description("Citadine récente, climatisée")
+                .build());
+
+        log.info("✅ Vehicles created");
     }
 
     /**
@@ -385,10 +401,7 @@ public class DataLoader {
     }
 
     /**
-     * Crée 3 trajets de test avec différents statuts :
-     * 1. Trajet futur PLANNED avec réservations
-     * 2. Trajet passé COMPLETED
-     * 3. Trajet CANCELLED
+     * Crée 10 trajets de test avec différents statuts.
      */
     private void initTrips() {
         if (tripRepository.count() > 0) {
@@ -398,76 +411,107 @@ public class DataLoader {
 
         log.info("🧪 Creating trips...");
 
-        Person driver = personRepository.findByEmail("driver@test.fr")
-                .orElseThrow(() -> new IllegalStateException("Driver not found"));
+        Person driver1 = personRepository.findByEmail("driver1@test.fr")
+                .orElseThrow(() -> new IllegalStateException("Driver1 not found"));
+        Person driver2 = personRepository.findByEmail("driver2@test.fr")
+                .orElseThrow(() -> new IllegalStateException("Driver2 not found"));
 
-        Address departure = addressRepository.findAll().stream()
-                .filter(a -> a.getCity().getName().equals("Séné"))
-                .findFirst()
+        Address sene = addressRepository.findAll().stream()
+                .filter(a -> a.getCity().getName().equals("Séné")).findFirst()
                 .orElseThrow(() -> new IllegalStateException("Séné address not found"));
 
-        Address arriving = addressRepository.findAll().stream()
-                .filter(a -> a.getCity().getName().equals("Vannes"))
-                .findFirst()
+        Address vannes = addressRepository.findAll().stream()
+                .filter(a -> a.getCity().getName().equals("Vannes")).findFirst()
                 .orElseThrow(() -> new IllegalStateException("Vannes address not found"));
 
-        // 1️⃣ Trajet futur PLANNED (dans 7 jours) - avec réservations
-        TripStatus plannedStatus = tripStatusRepository.findByLabel(TripStatus.PLANNED)
+        TripStatus planned   = tripStatusRepository.findByLabel(TripStatus.PLANNED)
                 .orElseThrow(() -> new IllegalStateException("PLANNED status not found"));
-
-        Trip plannedTrip = Trip.builder()
-                .driver(driver)
-                .tripDatetime(LocalDateTime.now().plusDays(7).withHour(8).withMinute(30).withSecond(0).withNano(0))
-                .availableSeats(3)
-                .smokingAllowed(false)
-                .tripStatus(plannedStatus)
-                .departureAddress(departure)
-                .arrivingAddress(arriving)
-                .distanceKm(8.4)
-                .durationMinutes(13)
-                .build();
-
-        tripRepository.save(plannedTrip);
-        log.info("✅ Planned trip created (in 7 days)");
-
-        // 2️⃣ Trajet passé COMPLETED (il y a 3 jours)
-        TripStatus completedStatus = tripStatusRepository.findByLabel(TripStatus.COMPLETED)
+        TripStatus completed = tripStatusRepository.findByLabel(TripStatus.COMPLETED)
                 .orElseThrow(() -> new IllegalStateException("COMPLETED status not found"));
-
-        Trip completedTrip = Trip.builder()
-                .driver(driver)
-                .tripDatetime(LocalDateTime.now().minusDays(3).withHour(14).withMinute(0).withSecond(0).withNano(0))
-                .availableSeats(0)  // Plus de places (toutes prises)
-                .smokingAllowed(false)
-                .tripStatus(completedStatus)
-                .departureAddress(arriving)  // Inverse : Vannes → Séné
-                .arrivingAddress(departure)
-                .distanceKm(8.2)
-                .durationMinutes(15)
-                .build();
-
-        tripRepository.save(completedTrip);
-        log.info("✅ Completed trip created (3 days ago)");
-
-        TripStatus cancelledStatus = tripStatusRepository.findByLabel(TripStatus.CANCELLED)
+        TripStatus cancelled = tripStatusRepository.findByLabel(TripStatus.CANCELLED)
                 .orElseThrow(() -> new IllegalStateException("CANCELLED status not found"));
 
-        Trip cancelledTrip = Trip.builder()
-                .driver(driver)
+        // ─── driver1 — 4 PLANNED ──────────────────────────────────────────────────
+        tripRepository.save(Trip.builder()
+                .driver(driver1).tripStatus(planned)
+                .tripDatetime(LocalDateTime.now().plusDays(7).withHour(8).withMinute(30).withSecond(0).withNano(0))
+                .departureAddress(sene).arrivingAddress(vannes)
+                .availableSeats(3).smokingAllowed(false)
+                .distanceKm(8.4).durationMinutes(13).build());
+
+        tripRepository.save(Trip.builder()
+                .driver(driver1).tripStatus(planned)
+                .tripDatetime(LocalDateTime.now().plusDays(3).withHour(7).withMinute(45).withSecond(0).withNano(0))
+                .departureAddress(sene).arrivingAddress(vannes)
+                .availableSeats(2).smokingAllowed(false)
+                .distanceKm(8.4).durationMinutes(13).build());
+
+        tripRepository.save(Trip.builder()
+                .driver(driver1).tripStatus(planned)
+                .tripDatetime(LocalDateTime.now().plusDays(14).withHour(8).withMinute(0).withSecond(0).withNano(0))
+                .departureAddress(sene).arrivingAddress(vannes)
+                .availableSeats(4).smokingAllowed(true)
+                .distanceKm(8.4).durationMinutes(13).build());
+
+        tripRepository.save(Trip.builder()
+                .driver(driver1).tripStatus(planned)
+                .tripDatetime(LocalDateTime.now().plusDays(5).withHour(17).withMinute(30).withSecond(0).withNano(0))
+                .departureAddress(vannes).arrivingAddress(sene)
+                .availableSeats(3).smokingAllowed(false)
+                .distanceKm(8.2).durationMinutes(15).build());
+
+        // ─── driver1 — 1 COMPLETED + 1 CANCELLED ─────────────────────────────────
+        tripRepository.save(Trip.builder()
+                .driver(driver1).tripStatus(completed)
+                .tripDatetime(LocalDateTime.now().minusDays(3).withHour(14).withMinute(0).withSecond(0).withNano(0))
+                .departureAddress(sene).arrivingAddress(vannes)
+                .availableSeats(0).smokingAllowed(false)
+                .distanceKm(8.4).durationMinutes(13).build());
+
+        tripRepository.save(Trip.builder()
+                .driver(driver1).tripStatus(cancelled)
                 .tripDatetime(LocalDateTime.now().plusDays(1).withHour(18).withMinute(0).withSecond(0).withNano(0))
-                .availableSeats(4)
-                .smokingAllowed(true)
-                .tripStatus(cancelledStatus)
-                .departureAddress(departure)
-                .arrivingAddress(arriving)
-                .distanceKm(8.4)
-                .durationMinutes(13)
-                .build();
+                .departureAddress(sene).arrivingAddress(vannes)
+                .availableSeats(4).smokingAllowed(true)
+                .distanceKm(8.4).durationMinutes(13).build());
 
-        tripRepository.save(cancelledTrip);
-        log.info("✅ Cancelled trip created (was tomorrow)");
+        // ─── driver2 — 4 PLANNED + 1 COMPLETED ───────────────────────────────────
+        tripRepository.save(Trip.builder()
+                .driver(driver2).tripStatus(planned)
+                .tripDatetime(LocalDateTime.now().plusDays(2).withHour(8).withMinute(15).withSecond(0).withNano(0))
+                .departureAddress(vannes).arrivingAddress(sene)
+                .availableSeats(3).smokingAllowed(false)
+                .distanceKm(8.2).durationMinutes(15).build());
 
-        log.info("✅ 3 trips created (PLANNED, COMPLETED, CANCELLED)");
+        tripRepository.save(Trip.builder()
+                .driver(driver2).tripStatus(planned)
+                .tripDatetime(LocalDateTime.now().plusDays(10).withHour(7).withMinute(30).withSecond(0).withNano(0))
+                .departureAddress(sene).arrivingAddress(vannes)
+                .availableSeats(1).smokingAllowed(false)
+                .distanceKm(8.4).durationMinutes(13).build());
+
+        tripRepository.save(Trip.builder()
+                .driver(driver2).tripStatus(planned)
+                .tripDatetime(LocalDateTime.now().plusDays(6).withHour(18).withMinute(0).withSecond(0).withNano(0))
+                .departureAddress(vannes).arrivingAddress(sene)
+                .availableSeats(2).smokingAllowed(false)
+                .distanceKm(8.2).durationMinutes(15).build());
+
+        tripRepository.save(Trip.builder()
+                .driver(driver2).tripStatus(planned)
+                .tripDatetime(LocalDateTime.now().plusDays(21).withHour(8).withMinute(0).withSecond(0).withNano(0))
+                .departureAddress(sene).arrivingAddress(vannes)
+                .availableSeats(4).smokingAllowed(false)
+                .distanceKm(8.4).durationMinutes(13).build());
+
+        tripRepository.save(Trip.builder()
+                .driver(driver2).tripStatus(completed)
+                .tripDatetime(LocalDateTime.now().minusDays(5).withHour(17).withMinute(0).withSecond(0).withNano(0))
+                .departureAddress(vannes).arrivingAddress(sene)
+                .availableSeats(0).smokingAllowed(false)
+                .distanceKm(8.2).durationMinutes(15).build());
+
+        log.info("✅ 11 trips created: 8 PLANNED, 2 COMPLETED, 1 CANCELLED");
     }
 
     /**
@@ -493,14 +537,16 @@ public class DataLoader {
         List<Trip> trips = tripRepository.findAll();
 
         Trip plannedTrip = trips.stream()
-                .filter(t -> t.getTripStatus().getLabel().equals(TripStatus.PLANNED))
+                .filter(t -> t.getTripStatus().getLabel().equals(TripStatus.PLANNED)
+                        && t.getDriver().getEmail().equals("driver1@test.fr"))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No planned trip found"));
+                .orElseThrow(() -> new IllegalStateException("No planned trip for driver1 found"));
 
         Trip completedTrip = trips.stream()
-                .filter(t -> t.getTripStatus().getLabel().equals(TripStatus.COMPLETED))
+                .filter(t -> t.getTripStatus().getLabel().equals(TripStatus.COMPLETED)
+                        && t.getDriver().getEmail().equals("driver1@test.fr"))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No completed trip found"));
+                .orElseThrow(() -> new IllegalStateException("No completed trip for driver1 found"));
 
         Trip cancelledTrip = trips.stream()
                 .filter(t -> t.getTripStatus().getLabel().equals(TripStatus.CANCELLED))

@@ -33,7 +33,10 @@ public class TripResponse {
     private AddressResponse arrivingAddress;
 
     // Conducteur
-    private PersonProfileResponse driver;
+    private PersonResponse driver;
+
+    // Vehicule
+    private VehicleMinimalResponse vehicle;
 
     // Réservations
     private List<ReservationMinimalResponse> reservations;

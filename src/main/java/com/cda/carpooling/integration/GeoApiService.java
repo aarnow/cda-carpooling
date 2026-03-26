@@ -54,6 +54,7 @@ public class GeoApiService {
                             .path("/communes")
                             .queryParam("nom", name)
                             .queryParam("fields", "nom,codesPostaux")
+                            .queryParam("boost", "population")
                             .queryParam("limit", 10)
                             .build())
                     .retrieve()

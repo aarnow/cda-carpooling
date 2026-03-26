@@ -3,6 +3,7 @@ package com.cda.carpooling.service;
 import com.cda.carpooling.dto.request.CreateTripRequest;
 import com.cda.carpooling.dto.request.UpdateTripRequest;
 import com.cda.carpooling.dto.response.PersonMinimalResponse;
+import com.cda.carpooling.dto.response.ReservationResponse;
 import com.cda.carpooling.dto.response.TripMinimalResponse;
 import com.cda.carpooling.dto.response.TripResponse;
 import com.cda.carpooling.entity.*;
@@ -51,11 +52,12 @@ public class TripService {
      * @return Liste de TripMinimalResponse
      */
     @Transactional(readOnly = true)
-    public List<TripResponse> getAllTrips(
+    public List<TripMinimalResponse> getAllTrips(
             LocalDate tripDate,
             String startingCity,
             String arrivalCity,
-            Boolean isUpcoming) {
+            Boolean isUpcoming,
+            Integer fromHour) {
 
         log.debug("Recherche trajets : date={}, départ={}, arrivée={}",
                 tripDate, startingCity, arrivalCity);
@@ -64,11 +66,12 @@ public class TripService {
                 .where(TripSpecification.hasDate(tripDate))
                 .and(TripSpecification.hasDepartureCity(startingCity))
                 .and(TripSpecification.hasArrivingCity(arrivalCity))
-                .and(TripSpecification.isUpcoming(isUpcoming));
+                .and(TripSpecification.isUpcoming(isUpcoming))
+                .and(TripSpecification.fromHour(fromHour));
 
-        List<TripResponse> results = tripRepository.findAll(spec)
+        List<TripMinimalResponse> results = tripRepository.findAll(spec)
                 .stream()
-                .map(tripMapper::toResponse)
+                .map(tripMapper::toMinimalResponse)
                 .toList();
 
         log.debug("{} trajets trouvés", results.size());
@@ -228,7 +231,7 @@ public class TripService {
 
         List<Person> passengers = updated.getReservations().stream()
                 .filter(r -> !r.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED))
-                .map(com.cda.carpooling.entity.Reservation::getPerson)
+                .map(Reservation::getPerson)
                 .toList();
 
         emailService.sendTripUpdateNotification(updated, passengers);
@@ -246,13 +249,40 @@ public class TripService {
 
         List<Person> passengers = trip.getReservations().stream()
                 .filter(r -> !r.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED))
-                .map(com.cda.carpooling.entity.Reservation::getPerson)
+                .map(Reservation::getPerson)
                 .toList();
 
         reservationService.cancelTripReservations(trip);
         tripRepository.delete(trip);
         emailService.sendTripCancellationNotification(trip, passengers);
         log.warn("🗑Trajet {} supprimé", id);
+    }
+
+    /**
+     * Annule un trajet
+     * Annule les réservations associées et notifie les passagers.
+     */
+    @Transactional
+    public TripResponse cancelTrip(Long id) {
+        Trip trip = findTripOrThrow(id);
+
+        TripStatus cancelledStatus = tripStatusRepository.findByLabel(TripStatus.CANCELLED)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Statut", "label", TripStatus.CANCELLED));
+
+        List<Person> passengers = trip.getReservations().stream()
+                .filter(r -> !r.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED))
+                .map(Reservation::getPerson)
+                .toList();
+
+        reservationService.cancelTripReservations(trip);
+        trip.setTripStatus(cancelledStatus);
+        Trip updated = tripRepository.save(trip);
+
+        emailService.sendTripCancellationNotification(updated, passengers);
+        log.warn("Trajet {} annulé", id);
+
+        return tripMapper.toResponse(updated);
     }
 
     /**
@@ -290,17 +320,6 @@ public class TripService {
     @Transactional(readOnly = true)
     public List<TripMinimalResponse> getTripsByDriver(Long driverId) {
         return tripRepository.findAllByDriverId(driverId)
-                .stream()
-                .map(tripMapper::toMinimalResponse)
-                .toList();
-    }
-
-    /**
-     * Retourne tous les trajets d'une personne en tant que passager
-     */
-    @Transactional(readOnly = true)
-    public List<TripMinimalResponse> getTripsByPassenger(Long personId) {
-        return tripRepository.findAllByPassengerId(personId)
                 .stream()
                 .map(tripMapper::toMinimalResponse)
                 .toList();

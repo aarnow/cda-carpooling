@@ -1,13 +1,12 @@
 package com.cda.carpooling.controller;
 
+import com.cda.carpooling.dto.request.ContactRequest;
 import com.cda.carpooling.dto.request.CreatePersonProfileRequest;
 import com.cda.carpooling.dto.request.UpdatePersonProfileRequest;
-import com.cda.carpooling.dto.response.PersonMinimalResponse;
-import com.cda.carpooling.dto.response.PersonProfileResponse;
-import com.cda.carpooling.dto.response.PersonResponse;
-import com.cda.carpooling.dto.response.TripMinimalResponse;
+import com.cda.carpooling.dto.response.*;
 import com.cda.carpooling.security.SecurityUtils;
 import com.cda.carpooling.service.PersonService;
+import com.cda.carpooling.service.ReservationService;
 import com.cda.carpooling.service.TripService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -37,6 +36,21 @@ public class PersonController {
     private final PersonService personService;
     private final TripService tripService;
     private final SecurityUtils securityUtils;
+    private final ReservationService reservationService;
+
+
+    @PostMapping("/{personId}/contact")
+    public ResponseEntity<Void> contactPerson(
+            @PathVariable Long personId,
+            @Valid @RequestBody ContactRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        Long senderId = securityUtils.extractUserId(jwt);
+        log.info("Contact de la personne {} par {}", personId, senderId);
+
+        personService.contactPerson(senderId, personId, request);
+        return ResponseEntity.noContent().build();
+    }
 
     /**
      * GET /persons
@@ -96,11 +110,11 @@ public class PersonController {
 
     /**
      * GET /persons/{id}/trips-passenger
-     * Retourne les trajets d'une personne en tant que passager.
+     * Retourne les réservations d'une personne en tant que passager.
      * Réservé au propriétaire ou à un admin.
      */
     @GetMapping("/{id}/trips-passenger")
-    public ResponseEntity<List<TripMinimalResponse>> getTripsByPassenger(
+    public ResponseEntity<List<ReservationResponse>> getTripsByPassenger(
             @PathVariable Long id,
             @AuthenticationPrincipal Jwt jwt) {
 
@@ -109,7 +123,7 @@ public class PersonController {
                     "Vous n'avez pas accès aux trajets de cet utilisateur");
         }
 
-        return ResponseEntity.ok(tripService.getTripsByPassenger(id));
+        return ResponseEntity.ok(reservationService.getTripsByPassenger(id));
     }
 
     /**

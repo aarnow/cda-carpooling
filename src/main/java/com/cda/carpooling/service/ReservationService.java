@@ -76,6 +76,20 @@ public class ReservationService {
     }
 
     /**
+     * Retourne toutes les réservations d'une personne en tant que passager.
+     *
+     * @param personId ID de la personne
+     * @return Liste des réservations
+     */
+    @Transactional(readOnly = true)
+    public List<ReservationResponse> getTripsByPassenger(Long personId) {
+        return reservationRepository.findByPersonId(personId)
+                .stream()
+                .map(reservationMapper::toResponse)
+                .toList();
+    }
+
+    /**
      * Annule toutes les réservations actives d'un trajet.
      *
      * @param trip Le trajet dont les réservations doivent être annulées
@@ -101,6 +115,35 @@ public class ReservationService {
         });
 
         log.info("{} réservations annulées (trajet {})", activeReservations.size(), trip.getId());
+    }
+
+    /**
+     * Annule la réservation d'une personne sur un trajet spécifique.
+     * Lève une exception si aucune réservation active n'est trouvée.
+     *
+     * @param tripId   ID du trajet
+     * @param personId ID de la personne
+     * @return La réservation annulée
+     */
+    @Transactional
+    public Reservation cancelSingleTripReservation(Long tripId, Long personId) {
+        Reservation reservation = reservationRepository
+                .findByTripIdAndPersonIdAndStatusNotCancelled(tripId, personId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Réservation active", "tripId/personId", tripId + "/" + personId));
+
+        ReservationStatus cancelledStatus = reservationStatusRepository.findByLabel(ReservationStatus.CANCELLED)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Statut", "label", ReservationStatus.CANCELLED));
+
+        reservation.setReservationStatus(cancelledStatus);
+
+        // Restitue la place au trajet
+        Trip trip = reservation.getTrip();
+        trip.setAvailableSeats(trip.getAvailableSeats() + 1);
+        tripRepository.save(trip);
+
+        return reservationRepository.save(reservation);
     }
 
     /**

@@ -19,5 +19,5 @@ public class ReservationMinimalResponse {
     private LocalDateTime updatedAt;
 
     // Personne
-    private PersonMinimalResponse passenger;
+    private PersonResponse passenger;
 }
