@@ -35,7 +35,7 @@ public class TripResponse {
     // Conducteur
     private PersonResponse driver;
 
-    // TODO
+    // Vehicule
     private VehicleMinimalResponse vehicle;
 
     // Réservations
