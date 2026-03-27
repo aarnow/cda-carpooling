@@ -6,6 +6,7 @@ import com.cda.carpooling.exception.ResourceNotFoundException;
 import com.cda.carpooling.exception.business.NoSeatsAvailableException;
 import com.cda.carpooling.exception.business.ProfileIncompleteException;
 import com.cda.carpooling.exception.business.TripNotAvailableException;
+import com.cda.carpooling.integration.EmailService;
 import com.cda.carpooling.mapper.ReservationMapper;
 import com.cda.carpooling.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class ReservationService {
     private final TripRepository tripRepository;
     private final PersonRepository personRepository;
     private final ReservationMapper reservationMapper;
+    private final EmailService emailService;
 
     /**
      * Réserve une place sur un trajet OU gère l'annulation/réactivation.
@@ -143,7 +145,12 @@ public class ReservationService {
         trip.setAvailableSeats(trip.getAvailableSeats() + 1);
         tripRepository.save(trip);
 
-        return reservationRepository.save(reservation);
+        Reservation saved = reservationRepository.save(reservation);
+
+        // Notifier le passager
+        emailService.sendReservationCancelledByDriverNotification(saved.getPerson(), trip);
+
+        return saved;
     }
 
     /**
@@ -170,19 +177,14 @@ public class ReservationService {
             Person person,
             Reservation existingReservation) {
 
-        // Vérifier les places disponibles
         if (trip.getAvailableSeats() <= 0) {
-            log.warn("Plus de places disponibles : tripId={}", trip.getId());
             throw new NoSeatsAvailableException("Ce trajet n'a plus de places disponibles");
         }
 
-        // Vérifier que ce n'est pas le conducteur
         if (trip.getDriver().getId().equals(person.getId())) {
-            log.warn("Conducteur tente de réserver son propre trajet : personId={}, tripId={}", person.getId(), trip.getId());
             throw new IllegalStateException("Un conducteur ne peut pas réserver son propre trajet");
         }
 
-        // Récupérer le statut CONFIRMED
         ReservationStatus confirmedStatus = reservationStatusRepository
                 .findByLabel(ReservationStatus.CONFIRMED)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -193,8 +195,11 @@ public class ReservationService {
         if (existingReservation != null) {
             existingReservation.setReservationStatus(confirmedStatus);
             reservation = reservationRepository.save(existingReservation);
-            log.info("🔄 Réservation réactivée : id={}, personId={}, tripId={}",
+            log.info("Réservation réactivée : id={}, personId={}, tripId={}",
                     reservation.getId(), person.getId(), trip.getId());
+
+            // Notifier le conducteur : réservation réactivée
+            emailService.sendReservationToggledNotification(trip.getDriver(), person, trip, true);
         } else {
             reservation = Reservation.builder()
                     .trip(trip)
@@ -204,13 +209,13 @@ public class ReservationService {
             reservation = reservationRepository.save(reservation);
             log.info("Réservation créée : id={}, personId={}, tripId={}",
                     reservation.getId(), person.getId(), trip.getId());
+
+            // Notifier le conducteur : nouvelle réservation
+            emailService.sendReservationToggledNotification(trip.getDriver(), person, trip, true);
         }
 
-        // Décrémenter les places disponibles
         trip.setAvailableSeats(trip.getAvailableSeats() - 1);
         tripRepository.save(trip);
-
-        log.info("Places restantes : {} (tripId={})", trip.getAvailableSeats(), trip.getId());
 
         return reservationMapper.toResponse(reservation);
     }
@@ -231,6 +236,9 @@ public class ReservationService {
         reservation.setReservationStatus(cancelledStatus);
         Reservation updated = reservationRepository.save(reservation);
         log.info("Réservation annulée : id={}", updated.getId());
+
+        emailService.sendReservationToggledNotification(trip.getDriver(), reservation.getPerson(), trip, false);
+
         return reservationMapper.toResponse(updated);
     }
 
