@@ -3,7 +3,6 @@ package com.cda.carpooling.service;
 import com.cda.carpooling.dto.request.CreateTripRequest;
 import com.cda.carpooling.dto.request.UpdateTripRequest;
 import com.cda.carpooling.dto.response.PersonMinimalResponse;
-import com.cda.carpooling.dto.response.ReservationResponse;
 import com.cda.carpooling.dto.response.TripMinimalResponse;
 import com.cda.carpooling.dto.response.TripResponse;
 import com.cda.carpooling.entity.*;

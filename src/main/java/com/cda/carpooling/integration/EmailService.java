@@ -172,6 +172,50 @@ public class EmailService {
     }
 
     /**
+     * Notifie le conducteur qu'un passager a confirmé ou annulé sa réservation.
+     *
+     * @param driver    Conducteur à notifier
+     * @param passenger Passager concerné
+     * @param trip      Trajet concerné
+     * @param isConfirmed true = réservation confirmée/réactivée, false = annulée
+     */
+    @Async
+    public void sendReservationToggledNotification(Person driver, Person passenger, Trip trip, boolean isConfirmed) {
+        log.info("Envoi notification réservation {} au conducteur {} (tripId={})",
+                isConfirmed ? "confirmée" : "annulée", driver.getEmail(), trip.getId());
+        try {
+            sendEmail(
+                    driver.getEmail(),
+                    isConfirmed ? "Nouvelle réservation sur votre trajet" : "Annulation de réservation sur votre trajet",
+                    buildReservationToggledTemplate(driver, passenger, trip, isConfirmed)
+            );
+        } catch (Exception e) {
+            log.error("Erreur envoi notification réservation à {} : {}", driver.getEmail(), e.getMessage());
+        }
+    }
+
+    /**
+     * Notifie un passager que sa réservation a été annulée par le conducteur.
+     *
+     * @param passenger Passager à notifier
+     * @param trip      Trajet concerné
+     */
+    @Async
+    public void sendReservationCancelledByDriverNotification(Person passenger, Trip trip) {
+        log.info("Envoi notification annulation réservation au passager {} (tripId={})",
+                passenger.getEmail(), trip.getId());
+        try {
+            sendEmail(
+                    passenger.getEmail(),
+                    "Votre réservation a été annulée",
+                    buildReservationCancelledByDriverTemplate(passenger, trip)
+            );
+        } catch (Exception e) {
+            log.error("Erreur envoi notification au passager {} : {}", passenger.getEmail(), e.getMessage());
+        }
+    }
+
+    /**
      * Envoie un email via Mailjet.
      */
     private void sendEmail(String toEmail, String subject, String htmlContent) throws MailjetException {
@@ -378,6 +422,123 @@ public class EmailService {
                 formatAddress(trip.getDepartureAddress()),
                 formatAddress(trip.getArrivingAddress()),
                 trip.getTripDatetime().format(dateFormatter)
+        );
+    }
+
+    private String buildReservationToggledTemplate(Person driver, Person passenger, Trip trip, boolean isConfirmed) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy à HH:mm");
+
+        String driverName = driver.getProfile() != null ? driver.getProfile().getFirstname() : driver.getEmail();
+        String passengerName = passenger.getProfile() != null
+                ? passenger.getProfile().getFirstname() + " " + passenger.getProfile().getLastname()
+                : passenger.getEmail();
+
+        String color = isConfirmed ? "#4CAF50" : "#f44336";
+        String action = isConfirmed ? "a confirmé une réservation" : "a annulé sa réservation";
+        String emoji = isConfirmed ? "✅" : "❌";
+
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: %s; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+                .info-box { background: white; padding: 20px; margin: 20px 0; border-left: 4px solid %s; }
+                .info-box p { margin: 8px 0; }
+                .label { font-weight: bold; color: #666; }
+                .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>%s Réservation %s</h1>
+                </div>
+                <div class="content">
+                    <p>Bonjour <strong>%s</strong>,</p>
+                    <p><strong>%s</strong> %s sur votre trajet :</p>
+                    <div class="info-box">
+                        <p><span class="label">Départ :</span> %s</p>
+                        <p><span class="label">Arrivée :</span> %s</p>
+                        <p><span class="label">Date :</span> %s</p>
+                        <p><span class="label">Places restantes :</span> %d</p>
+                    </div>
+                    <p>Bon voyage ! 🚗</p>
+                </div>
+                <div class="footer">
+                    <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+                    <p>© 2026 Carpooling - Tous droits réservés</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """.formatted(
+                color, color,
+                emoji, isConfirmed ? "confirmée" : "annulée",
+                driverName,
+                passengerName, action,
+                formatAddress(trip.getDepartureAddress()),
+                formatAddress(trip.getArrivingAddress()),
+                trip.getTripDatetime().format(formatter),
+                trip.getAvailableSeats()
+        );
+    }
+
+    private String buildReservationCancelledByDriverTemplate(Person passenger, Trip trip) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy à HH:mm");
+
+        String passengerName = passenger.getProfile() != null
+                ? passenger.getProfile().getFirstname()
+                : passenger.getEmail();
+
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: #f44336; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+                .info-box { background: white; padding: 20px; margin: 20px 0; border-left: 4px solid #f44336; }
+                .info-box p { margin: 8px 0; }
+                .label { font-weight: bold; color: #666; }
+                .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>❌ Réservation annulée</h1>
+                </div>
+                <div class="content">
+                    <p>Bonjour <strong>%s</strong>,</p>
+                    <p>Votre réservation sur le trajet suivant a été <strong>annulée par le conducteur</strong> :</p>
+                    <div class="info-box">
+                        <p><span class="label">Départ :</span> %s</p>
+                        <p><span class="label">Arrivée :</span> %s</p>
+                        <p><span class="label">Date :</span> %s</p>
+                    </div>
+                    <p>Nous vous invitons à consulter nos autres trajets disponibles.</p>
+                    <p>Nous nous excusons pour ce désagrément.</p>
+                </div>
+                <div class="footer">
+                    <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+                    <p>© 2026 Carpooling - Tous droits réservés</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """.formatted(
+                passengerName,
+                formatAddress(trip.getDepartureAddress()),
+                formatAddress(trip.getArrivingAddress()),
+                trip.getTripDatetime().format(formatter)
         );
     }
 
