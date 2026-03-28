@@ -7,10 +7,7 @@ import com.cda.carpooling.dto.request.UpdatePersonProfileRequest;
 import com.cda.carpooling.dto.response.PersonMinimalResponse;
 import com.cda.carpooling.dto.response.PersonProfileResponse;
 import com.cda.carpooling.dto.response.PersonResponse;
-import com.cda.carpooling.entity.Person;
-import com.cda.carpooling.entity.PersonProfile;
-import com.cda.carpooling.entity.Role;
-import com.cda.carpooling.entity.PersonStatus;
+import com.cda.carpooling.entity.*;
 import com.cda.carpooling.exception.ResourceNotFoundException;
 import com.cda.carpooling.exception.DuplicateResourceException;
 import com.cda.carpooling.integration.EmailService;
@@ -48,6 +45,8 @@ public class PersonService {
     private final PersonProfileMapper personProfileMapper;
     private final BCryptPasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final VehicleService vehicleService;
+    private final ReservationService reservationService;
 
     /**
      * Crée un nouvel utilisateur avec statut ACTIVE et rôle STUDENT par défaut.
@@ -207,6 +206,14 @@ public class PersonService {
 
         personRepository.save(person);
         log.warn("Soft delete personne {} (email anonymisé : {})", personId, person.getEmail());
+
+        // supprimer son vehicule (ce qui entraine l'annulation de ses trajets)
+        Vehicle vehicle = person.getVehicle();
+        if(vehicle != null) vehicleService.deleteVehicle(vehicle.getId());
+
+        // annuler ses réservation
+        reservationService.cancelPersonReservations(person);
+
         return personMapper.toResponse(person);
     }
 

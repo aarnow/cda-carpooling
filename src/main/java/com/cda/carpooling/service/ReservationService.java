@@ -120,6 +120,21 @@ public class ReservationService {
     }
 
     /**
+     * Annule toutes les réservations d'une personne
+     */
+    public void cancelPersonReservations(Person person) {
+        ReservationStatus cancelledStatus = findCancelledStatusOrThrow();
+
+        person.getReservations().forEach(reservation -> {
+            reservation.setReservationStatus(cancelledStatus);
+            reservationRepository.save(reservation);
+            log.info("Réservation {} annulée", reservation.getId());
+        });
+
+        log.info("{} réservations annulées", person.getReservations().size());
+    }
+
+    /**
      * Annule la réservation d'une personne sur un trajet spécifique.
      * Lève une exception si aucune réservation active n'est trouvée.
      *

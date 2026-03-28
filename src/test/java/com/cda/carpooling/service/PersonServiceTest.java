@@ -61,6 +61,9 @@ class PersonServiceTest {
     @InjectMocks
     private PersonService personService;
 
+    @Mock
+    private ReservationService reservationService;
+
     private Person testPerson;
     private PersonStatus activeStatus;
     private PersonStatus deletedStatus;
