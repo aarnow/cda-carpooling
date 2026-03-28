@@ -265,6 +265,12 @@ public class TripService {
     public TripResponse cancelTrip(Long id) {
         Trip trip = findTripOrThrow(id);
 
+        if(trip.getTripStatus().equals(TripStatus.COMPLETED)) {
+            throw new IllegalStateException(
+                    "Le trajet " + id + " est déjà terminé et ne peut pas être annulé."
+            );
+        }
+
         TripStatus cancelledStatus = tripStatusRepository.findByLabel(TripStatus.CANCELLED)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Statut", "label", TripStatus.CANCELLED));
@@ -303,7 +309,13 @@ public class TripService {
                         "Statut", "label", TripStatus.CANCELLED));
 
         upcomingTrips.forEach(trip -> {
+            List<Person> passengers = trip.getReservations().stream()
+                    .filter(r -> !r.getReservationStatus().getLabel().equals(ReservationStatus.CANCELLED))
+                    .map(Reservation::getPerson)
+                    .toList();
+
             reservationService.cancelTripReservations(trip);
+            emailService.sendTripCancellationNotification(trip, passengers);
             trip.setTripStatus(cancelledStatus);
             tripRepository.save(trip);
             log.info("Trajet {} annulé", trip.getId());
